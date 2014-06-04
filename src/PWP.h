@@ -35,12 +35,23 @@ typedef struct torrent_info{
     int piece_num;
     char *piece_info;
 }torrent_info;
-
 extern torrent_info currTorrent;
+
+typedef struct p2p_thread_param{
+    int connfd;
+    int is_connecter;//1:this peer connect to another; 0:oppsite
+}p2p_thread_param;
+
 
 //functions
 void* process_p2p_conn(void *);
 int generate_listenfd();
 void init_p2p_block(P2PCB *node);
+void send_interest_msg(int);
+void send_request_msg(int,int,int,int);
+void send_have_msg(int,int);
+
+
+
 
 #endif

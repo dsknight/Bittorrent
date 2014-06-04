@@ -24,6 +24,7 @@ list_add(ListHead *prev, ListHead *next, ListHead *data) {
 
 static inline void
 list_add_before(ListHead *list, ListHead *data) {
+	assert(list != NULL);
 	list_add(list->prev, list, data);
 }
 

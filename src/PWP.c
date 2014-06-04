@@ -64,6 +64,20 @@ static inline void drop_conn(P2PCB *currP2P){
     free(currP2P);
 }
 
+
+//whether a bitfield is empty
+static inline int is_bitfield_empty(char *bitfield,int len){
+    int flag = 1;
+    for(int i = 0; i < len; i++){
+        if(bitfield[i] != 0){
+            flag = 0;
+            break;
+        }
+    }
+    return flag;
+}
+
+
 // init p2p control block
 void init_p2p_block(P2PCB *node){
     node->am_choking = 1;
@@ -94,13 +108,21 @@ int generate_listenfd(){
 	return listenfd;
 }
 
-void* process_p2p_conn(void *fd){
-    int connfd = (int)fd;
+void* process_p2p_conn(void *param){
+    //process param
+    p2p_thread_param *currParam = (p2p_thread_param *)param;
+    int connfd = currParam->connfd;
+    int is_connecter = currParam->is_connecter;
+    free(currParam);
+
     P2PCB *currP2P = (P2PCB *)malloc(sizeof(P2PCB));
     memset(currP2P,0,sizeof(P2PCB));
     currP2P->connfd = connfd;
-    init_p2p_block(currP2P);
-    int piece_info_len = globalInfo.g_torrentmeta->num_pieces/8 + (globalInfo.g_torrentmeta->num_pieces%8 != 0);
+    currP2P->am_choking = 1;
+    currP2P->am_interested = 0;
+    currP2P->peer_choking = 1;
+    currP2P->peer_interested = 0;
+    int piece_info_len = currTorrent.piece_num/8 + (currTorrent.piece_num%8 != 0);
     currP2P->oppsite_piece_info = (char *)malloc(piece_info_len);
     memset(currP2P->oppsite_piece_info,0,piece_info_len);
     list_add_before(&P2PCB_head,&currP2P->list);
@@ -119,12 +141,13 @@ void* process_p2p_conn(void *fd){
         }
         else{
             memcpy(currP2P->oppsite_peer_id,msg.peer_id,20);
-            send(connfd,&msg,sizeof(handshake_msg),0);//send back with local peer_id
+            if(!is_connecter)
+                send(connfd,&msg,sizeof(handshake_msg),0);//send back with local peer_id
         }
     }
 
     //send bitfield msg
-    if(strcmp(currTorrent.piece_info,"") != 0){
+    if(is_bitfield_empty(currTorrent.piece_info,piece_info_len)){
         char bitfield_msg[5+piece_info_len];
         *(int*)bitfield_msg = htonl(1+piece_info_len);
         bitfield_msg[4] = 5;
@@ -133,12 +156,15 @@ void* process_p2p_conn(void *fd){
     }
 
     //process msgs
-    while(readn(connfd, prefix, 5) > 0){
+    while(readn(connfd, prefix, 4) > 0){
         int len = ntohl(*(int *)prefix);
-        char type = prefix[4];
-        if(len == 0)//keep-alive
+        if(len == 0){//keep-alive
             continue;
-        switch(type){
+        }
+        else{
+            readn(connfd,prefix+4,1);
+        }
+        switch(prefix[4]){
             case 0 : currP2P->peer_choking = 1;break;//choke
             case 1 : currP2P->peer_choking = 0;break;//unchoke
             case 2 : currP2P->am_interested = 1;break;//interested
@@ -149,9 +175,7 @@ void* process_p2p_conn(void *fd){
                          index = ntohl(index);
                          set_bit_at_index(currP2P->oppsite_piece_info,index,1);
                          if(get_bit_at_index(currTorrent.piece_info,index) == 0){//send interest
-                            *(int *)prefix = htonl(1);
-                            prefix[4] = 2;
-                            send(connfd, prefix, 5, 0);
+                             send_interest_msg(connfd);
                          }
                          break;
                      }
@@ -177,6 +201,16 @@ void* process_p2p_conn(void *fd){
                          }
                          //set oppsite piece info
                          memcpy(currP2P->oppsite_piece_info,bitfield,len-1);
+
+                         //to see whether oppsite peer interedted
+                         char interest_bitfield[piece_info_len];
+                         for(int i = 0; i < piece_info_len; i++){
+                            interest_bitfield[i] = (~currTorrent.piece_info[i]) &
+                                                    currP2P->oppsite_piece_info[i]; 
+                         }
+                         if(!is_bitfield_empty(interest_bitfield,piece_info_len)){
+                              send_interest_msg(connfd);
+                         }
                          break;
                      }
             case 6 : {//request
@@ -185,22 +219,27 @@ void* process_p2p_conn(void *fd){
                         int index = ntohl(payload[0]);
                         int begin = ntohl(payload[1]);
                         int length = ntohl(payload[2]);
-                        if(length > 131072){
+                        if(length > (1 << 17)){
                             printf("the length in request is larger than 2^17\n");
                             drop_conn(currP2P);
-                            return NULL;
+                            return NULL ;
                         }
-
-                        //send the block
-                        /*char *block = get_block(index,begin,length);
-                        char piece_msg[13 + length];
-                        *(int *)piece_msg = 9 + length;
-                        piece_msg[4] = 7;
-                        *(int *)(piece_msg+5) = index;
-                        *(int *)(piece_msg+9) = begin;
-                        memcpy(piece_msg+13,block,length);
-                        send(connfd,piece_msg,13+length,0);
-                        free(block);*/
+                        if(currP2P->am_interested == 1 && currP2P->peer_choking == 0){
+                            //send the block
+                            /*char *block = get_block(index,begin,length);
+                              char piece_msg[13 + length];
+                             *(int *)piece_msg = 9 + length;
+                             piece_msg[4] = 7;
+                             *(int *)(piece_msg+5) = index;
+                             *(int *)(piece_msg+9) = begin;
+                             memcpy(piece_msg+13,block,length);
+                             send(connfd,piece_msg,13+length,0);
+                             free(block);*/
+                        }
+                        else{
+                            printf("the request is invalid,aninterested = %d,peer_choking = %d\n",
+                                    currP2P->am_interested,currP2P->peer_choking);
+                        }
                         break;
                      }
             case 7 : {//piece
@@ -220,6 +259,31 @@ void* process_p2p_conn(void *fd){
 
     printf("exit the p2p msg process\n");
     return NULL;
+}
+
+void send_have_msg(int connfd,int index){
+    char have_msg[9];
+    *(int*)have_msg = htonl(5);
+    have_msg[4] = 4;
+    *(int*)(have_msg+5) = htonl(index);
+    send(connfd,have_msg,9,0);
+}
+
+void send_request_msg(int connfd,int index,int begin,int length){
+    char request_msg[17];
+    *(int*)request_msg = htonl(13);
+    request_msg[4] = 6;
+    *(int*)(request_msg+5) = htonl(index);
+    *(int*)(request_msg+9) = htonl(begin);
+    *(int*)(request_msg+13) = htonl(length);
+    send(connfd,request_msg,17,0);
+}
+
+void send_interest_msg(int connfd){
+    char interest_msg[5];
+    *(int*)interest_msg = htonl(1);
+    interest_msg[4] = 2;
+    send(connfd,interest_msg,5,0);
 }
 
 
