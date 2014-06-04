@@ -13,13 +13,13 @@
 #include <unistd.h>
 #include "PWP.h"
 #include "list.h"
+#include "global.h"
 
 static char set_bit[8] = {1,2,4,8,16,32,64,128};
 
 
-static int readn( int fd, void *bp_, size_t len)
+static int readn( int fd, void *bp, size_t len)
 {
-    char *bp = (char *)bp_;
     int cnt;
     int rc;
 
@@ -78,6 +78,15 @@ static inline int is_bitfield_empty(char *bitfield,int len){
 }
 
 
+// init p2p control block
+void init_p2p_block(P2PCB *node){
+    node->am_choking = 1;
+    node->am_interested = 0;
+    node->peer_choking = 1;
+    node->peer_interested = 0;
+    list_init(&node->list);
+}
+
 //listening PEER_PORT for handshake,this function returns the listening sockfd 
 int generate_listenfd(){ 
 	int listenfd,connfd;
@@ -125,15 +134,13 @@ void* process_p2p_conn(void *param){
     //readn handshake msg
     if(readn(connfd,&msg,sizeof(handshake_msg)) > 0){
         printf("handshake recieved\n");
-        if(strncmp(msg.info_hash, currTorrent.info_hash,20) != 0 || 
-           strncmp(msg.peer_id, currTorrent.peer_id,20) != 0){//wrong hash_info or peer_id
+        if(strncmp(msg.info_hash, (char *)globalInfo.g_torrentmeta->info_hash,20) != 0){//wrong hash_info 
             printf("wrong handshake msg\n");
             drop_conn(currP2P);
             return NULL;
         }
         else{
             memcpy(currP2P->oppsite_peer_id,msg.peer_id,20);
-            memcpy(msg.peer_id,currTorrent.peer_id,20);
             if(!is_connecter)
                 send(connfd,&msg,sizeof(handshake_msg),0);//send back with local peer_id
         }
@@ -156,10 +163,8 @@ void* process_p2p_conn(void *param){
         }
         else{
             readn(connfd,prefix+4,1);
-            char type = prefix[4];
         }
-        if(prefix[0] != 0&& prefix[4])
-        switch(type){
+        switch(prefix[4]){
             case 0 : currP2P->peer_choking = 1;break;//choke
             case 1 : currP2P->peer_choking = 0;break;//unchoke
             case 2 : currP2P->am_interested = 1;break;//interested
@@ -185,7 +190,7 @@ void* process_p2p_conn(void *param){
                          }
                          //check idle bits
                          unsigned char ch = bitfield[len-2];
-                         int offset = 8 - currTorrent.piece_num%8;
+                         int offset = 8 - globalInfo.g_torrentmeta->num_pieces%8;
                          while(offset >= 1){
                              if(((ch >> (offset-1)) & 1) == 1){//wrong idle bits 
                                  printf("wrong idle bits\n");
@@ -253,7 +258,7 @@ void* process_p2p_conn(void *param){
     }
 
     printf("exit the p2p msg process\n");
-
+    return NULL;
 }
 
 void send_have_msg(int connfd,int index){
@@ -278,7 +283,7 @@ void send_interest_msg(int connfd){
     char interest_msg[5];
     *(int*)interest_msg = htonl(1);
     interest_msg[4] = 2;
-    send(confd,interest_msg,5,0);
+    send(connfd,interest_msg,5,0);
 }
 
 

@@ -10,15 +10,15 @@
 extern ListHead P2PCB_head;
  
 typedef struct p2p_ctrl_block{
+    ListHead list;
     int connfd;
-    //`int state;//0:before handshake; 1:after handshake bebore bitfield; 3 after bitfield
+    // int state;//0:before handshake; 1:after handshake bebore bitfield; 3 after bitfield
     int am_choking;
     int am_interested;
     int peer_choking;
     int peer_interested;
     char oppsite_peer_id[20];
     char *oppsite_piece_info;
-    ListHead list;
 }P2PCB;
 
 typedef struct handshake_msg{
@@ -46,13 +46,10 @@ typedef struct p2p_thread_param{
 //functions
 void* process_p2p_conn(void *);
 int generate_listenfd();
-
-
-
-
-
-
-
+void init_p2p_block(P2PCB *node);
+void send_interest_msg(int);
+void send_request_msg(int,int,int,int);
+void send_have_msg(int,int);
 
 
 

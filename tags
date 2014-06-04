@@ -4,6 +4,7 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+.ycm_extra_conf.py	.ycm_extra_conf.py	1;"	F
 BE_DICT	src/bencode.h	/^	BE_DICT,$/;"	e	enum:__anon1
 BE_INT	src/bencode.h	/^	BE_INT,$/;"	e	enum:__anon1
 BE_LIST	src/bencode.h	/^	BE_LIST,$/;"	e	enum:__anon1
@@ -17,6 +18,14 @@ CFLAGS	Makefile	/^CFLAGS= -std=c99 -g -MD$/;"	m
 CFLAGS	Makefile	/^debug:CFLAGS = -std=c99 -g -MD -D DEBUG$/;"	m
 Computed	src/sha1.h	/^    int Computed;               \/* Is the digest computed?          *\/$/;"	m	struct:SHA1Context	access:public
 Corrupted	src/sha1.h	/^    int Corrupted;              \/* Is the message digest corruped?  *\/$/;"	m	struct:SHA1Context	access:public
+DirectoryOfThisScript	.ycm_extra_conf.py	/^def DirectoryOfThisScript():$/;"	f	access:public
+FlagsForFile	.ycm_extra_conf.py	/^def FlagsForFile( filename, **kwargs ):$/;"	f	access:public
+GetCompilationInfoForFile	.ycm_extra_conf.py	/^def GetCompilationInfoForFile( filename ):$/;"	f	access:public
+HLIST_HEAD	src/list.h	71;"	d
+HLIST_HEAD_INIT	src/list.h	70;"	d
+INIT_HLIST_HEAD	src/list.h	72;"	d
+INIT_HLIST_NODE	src/list.h	/^static inline void INIT_HLIST_NODE(struct hlist_node *h)$/;"	f	signature:(struct hlist_node *h)
+IsHeaderFile	.ycm_extra_conf.py	/^def IsHeaderFile( filename ):$/;"	f	access:public
 LIBS	Makefile	/^LIBS= -lpthread$/;"	m
 Length_High	src/sha1.h	/^    unsigned Length_High;       \/* Message length in bits           *\/$/;"	m	struct:SHA1Context	access:public
 Length_Low	src/sha1.h	/^    unsigned Length_Low;        \/* Message length in bits           *\/$/;"	m	struct:SHA1Context	access:public
@@ -25,6 +34,7 @@ ListHead	src/list.h	/^typedef struct ListHead ListHead;$/;"	t	typeref:struct:Lis
 ListHead::next	src/list.h	/^	struct ListHead *prev, *next;$/;"	m	struct:ListHead	typeref:struct:ListHead::	access:public
 ListHead::prev	src/list.h	/^	struct ListHead *prev, *next;$/;"	m	struct:ListHead	typeref:struct:ListHead::ListHead	access:public
 MAXLINE	src/util.h	20;"	d
+MakeRelativePathsInFlagsAbsolute	.ycm_extra_conf.py	/^def MakeRelativePathsInFlagsAbsolute( flags, working_directory ):$/;"	f	access:public
 Makefile	Makefile	1;"	F
 Message_Block	src/sha1.h	/^    unsigned char Message_Block[64]; \/* 512-bit message blocks      *\/$/;"	m	struct:SHA1Context	access:public
 Message_Block_Index	src/sha1.h	/^    int Message_Block_Index;    \/* Index into message block array   *\/$/;"	m	struct:SHA1Context	access:public
@@ -32,6 +42,7 @@ Message_Digest	src/sha1.h	/^    unsigned Message_Digest[5]; \/* Message Digest (
 OBJS	Makefile	/^OBJS=$(SOURCES:.c=.o)$/;"	m
 P2PCB	src/PWP.h	/^}P2PCB;$/;"	t	typeref:struct:p2p_ctrl_block
 P2PCB_head	src/PWP.h	/^extern ListHead P2PCB_head;$/;"	x
+P2PCB_head	src/glmtorrent.c	/^ListHead P2PCB_head;$/;"	v
 PEER_PORT	src/PWP.h	5;"	d
 PWP.c	src/PWP.c	1;"	F
 PWP.h	src/PWP.h	1;"	F
@@ -56,6 +67,7 @@ SHA1Reset	src/sha1.h	/^void SHA1Reset(SHA1Context *);$/;"	p	signature:(SHA1Conte
 SHA1Result	src/sha1.c	/^int SHA1Result(SHA1Context *context)$/;"	f	signature:(SHA1Context *context)
 SHA1Result	src/sha1.h	/^int SHA1Result(SHA1Context *);$/;"	p	signature:(SHA1Context *)
 SOURCES	Makefile	/^SOURCES=$(shell find src\/ -name "*.c")$/;"	m
+SOURCE_EXTENSIONS	.ycm_extra_conf.py	/^SOURCE_EXTENSIONS = [ '.cpp', '.cxx', '.cc', '.c', '.m', '.mm' ]$/;"	v
 TARGET	Makefile	/^TARGET=simpletorrent$/;"	m
 TESTA	src/shatest.c	28;"	d	file:
 TESTB	src/shatest.c	31;"	d	file:
@@ -68,6 +80,7 @@ _SHA1_H_	src/sha1.h	25;"	d
 __GLOBAL_H_	src/global.h	22;"	d
 __LIST_H__	src/list.h	2;"	d
 __PWP_H_	src/PWP.h	2;"	d
+__hlist_del	src/list.h	/^static inline void __hlist_del(struct hlist_node *n)$/;"	f	signature:(struct hlist_node *n)
 _announce_url_t	src/btdata.h	/^typedef struct _announce_url_t {$/;"	s
 _announce_url_t::hostname	src/btdata.h	/^  char* hostname;$/;"	m	struct:_announce_url_t	access:public
 _announce_url_t::port	src/btdata.h	/^  int port;$/;"	m	struct:_announce_url_t	access:public
@@ -148,17 +161,24 @@ choked	src/btdata.h	/^  int choked;         \/\/ 作为下载者, 我们被远�
 choking	src/btdata.h	/^  int choking;        \/\/ 作为上传者, 阻塞远端peer$/;"	m	struct:_peer_t	access:public
 client_shutdown	src/shutdown.c	/^void client_shutdown(int sig)$/;"	f	signature:(int sig)
 client_shutdown	src/util.h	/^void client_shutdown(int sig);$/;"	p	signature:(int sig)
+compilation_database_folder	.ycm_extra_conf.py	/^compilation_database_folder = ''$/;"	v
 connect_to_host	src/util.c	/^int connect_to_host(char* ip, int port)$/;"	f	signature:(char* ip, int port)
 connect_to_host	src/util.h	/^int connect_to_host(char* ip, int port);$/;"	p	signature:(char* ip, int port)
 connfd	src/PWP.h	/^    int connfd;$/;"	m	struct:p2p_ctrl_block	access:public
 connfd	src/PWP.h	/^    int connfd;$/;"	m	struct:p2p_thread_param	access:public
+container_of	src/list.h	174;"	d
 currTorrent	src/PWP.h	/^extern torrent_info currTorrent;$/;"	x
+currTorrent	src/glmtorrent.c	/^torrent_info currTorrent;$/;"	v
 d	src/bencode.h	/^		struct be_dict *d;$/;"	m	union:be_node::__anon2	typeref:struct:be_node::__anon2::be_dict	access:public
 data	src/btdata.h	/^  char* data;     \/\/ B编码的字符串$/;"	m	struct:_tracker_response	access:public
+database	.ycm_extra_conf.py	/^  database = None$/;"	v
+database	.ycm_extra_conf.py	/^  database = ycm_core.CompilationDatabase( compilation_database_folder )$/;"	v
 downloaded	src/btdata.h	/^  int downloaded;$/;"	m	struct:_tracker_request	access:public
 drop_conn	src/PWP.c	/^static inline void drop_conn(P2PCB *currP2P){$/;"	f	file:	signature:(P2PCB *currP2P)
 file_len	src/util.c	/^int file_len(FILE* fp)$/;"	f	signature:(FILE* fp)
 file_len	src/util.h	/^int file_len(FILE* fname);$/;"	p	signature:(FILE* fname)
+first	src/list.h	/^	struct hlist_node *first;$/;"	m	struct:hlist_head	typeref:struct:hlist_head::hlist_node	access:public
+flags	.ycm_extra_conf.py	/^flags = [$/;"	v
 g_done	src/global.h	/^    int     g_done;$/;"	m	struct:globalInfo_t	access:public
 g_downloaded	src/global.h	/^    int     g_downloaded;$/;"	m	struct:globalInfo_t	access:public
 g_left	src/global.h	/^    int     g_left;$/;"	m	struct:globalInfo_t	access:public
@@ -210,6 +230,28 @@ handshake_msg::pstr	src/PWP.h	/^    char pstr[19];$/;"	m	struct:handshake_msg	ac
 handshake_msg::pstrlen	src/PWP.h	/^    char pstrlen;$/;"	m	struct:handshake_msg	access:public
 handshake_msg::reserved	src/PWP.h	/^    char reserved[8];$/;"	m	struct:handshake_msg	access:public
 have_interest	src/btdata.h	/^  int have_interest;  \/\/ 作为下载者, 对远端peer的分片有兴趣$/;"	m	struct:_peer_t	access:public
+hlist_add_after	src/list.h	/^static inline void hlist_add_after(struct hlist_node *n,$/;"	f	signature:(struct hlist_node *n, struct hlist_node *next)
+hlist_add_before	src/list.h	/^static inline void hlist_add_before(struct hlist_node *n,$/;"	f	signature:(struct hlist_node *n, struct hlist_node *next)
+hlist_add_head	src/list.h	/^static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)$/;"	f	signature:(struct hlist_node *n, struct hlist_head *h)
+hlist_del	src/list.h	/^static inline void hlist_del(struct hlist_node *n)$/;"	f	signature:(struct hlist_node *n)
+hlist_del_init	src/list.h	/^static inline void hlist_del_init(struct hlist_node *n)$/;"	f	signature:(struct hlist_node *n)
+hlist_empty	src/list.h	/^static inline int hlist_empty(const struct hlist_head *h)$/;"	f	signature:(const struct hlist_head *h)
+hlist_entry	src/list.h	157;"	d
+hlist_for_each	src/list.h	159;"	d
+hlist_for_each_entry	src/list.h	183;"	d
+hlist_for_each_entry_continue	src/list.h	195;"	d
+hlist_for_each_entry_from	src/list.h	207;"	d
+hlist_for_each_entry_safe	src/list.h	220;"	d
+hlist_for_each_safe	src/list.h	163;"	d
+hlist_head	src/list.h	/^typedef struct hlist_head {$/;"	s
+hlist_head	src/list.h	/^}hlist_head;$/;"	t	typeref:struct:hlist_head
+hlist_head::first	src/list.h	/^	struct hlist_node *first;$/;"	m	struct:hlist_head	typeref:struct:hlist_head::hlist_node	access:public
+hlist_move_list	src/list.h	/^static inline void hlist_move_list(struct hlist_head *old,$/;"	f	signature:(struct hlist_head *old, struct hlist_head *new)
+hlist_node	src/list.h	/^typedef struct hlist_node {$/;"	s
+hlist_node	src/list.h	/^}hlist_node;$/;"	t	typeref:struct:hlist_node
+hlist_node::next	src/list.h	/^	struct hlist_node *next, **pprev;$/;"	m	struct:hlist_node	typeref:struct:hlist_node::hlist_node	access:public
+hlist_node::pprev	src/list.h	/^	struct hlist_node *next, **pprev;$/;"	m	struct:hlist_node	typeref:struct:hlist_node::	access:public
+hlist_unhashed	src/list.h	/^static inline int hlist_unhashed(const struct hlist_node *h)$/;"	f	signature:(const struct hlist_node *h)
 hostname	src/btdata.h	/^  char* hostname;$/;"	m	struct:_announce_url_t	access:public
 i	src/bencode.h	/^		long long i;$/;"	m	union:be_node::__anon2	access:public
 id	src/btdata.h	/^  char id[21]; \/\/ 20用于null终止符$/;"	m	struct:_peerdata	access:public
@@ -217,12 +259,15 @@ info_hash	src/PWP.h	/^    char info_hash[20];$/;"	m	struct:handshake_msg	access:
 info_hash	src/PWP.h	/^    char info_hash[20];$/;"	m	struct:torrent_info	access:public
 info_hash	src/btdata.h	/^  int info_hash[5]; \/\/ torrent的info_hash值(info键对应值的SHA1哈希值)$/;"	m	struct:_torrentmetadata	access:public
 info_hash	src/btdata.h	/^  int info_hash[5];$/;"	m	struct:_tracker_request	access:public
+init_p2p_block	src/PWP.c	/^void init_p2p_block(P2PCB *node){$/;"	f	signature:(P2PCB *node)
+init_p2p_block	src/PWP.h	/^void init_p2p_block(P2PCB *node);$/;"	p	signature:(P2PCB *node)
 init_peer_id	src/glmtorrent.c	/^void init_peer_id(char id[20]){$/;"	f	signature:(char id[20])
 interested	src/btdata.h	/^  int interested;     \/\/ 远端peer对我们的分片有兴趣$/;"	m	struct:_peer_t	access:public
 interval	src/btdata.h	/^  int interval;$/;"	m	struct:_tracker_data	access:public
 ip	src/btdata.h	/^  char ip[16]; \/\/ Null终止$/;"	m	struct:_peerdata	access:public
 ip	src/btdata.h	/^  char ip[16]; \/\/ 自己的IP地址, 格式为XXX.XXX.XXX.XXX, 最后以'\\0'结尾$/;"	m	struct:_tracker_request	access:public
 is_bigendian	src/util.h	/^int is_bigendian();$/;"	p	signature:()
+is_bitfield_empty	src/PWP.c	/^static inline int is_bitfield_empty(char *bitfield,int len){$/;"	f	file:	signature:(char *bitfield,int len)
 is_connecter	src/PWP.h	/^    int is_connecter;\/\/1:this peer connect to another; 0:oppsite$/;"	m	struct:p2p_thread_param	access:public
 isseed	src/global.h	/^    int     isseed;$/;"	m	struct:globalArgs_t	access:public
 key	src/bencode.h	/^	char *key;$/;"	m	struct:be_dict	access:public
@@ -236,8 +281,8 @@ list_add_after	src/list.h	/^list_add_after(ListHead *list, ListHead *data) {$/;"
 list_add_before	src/list.h	/^list_add_before(ListHead *list, ListHead *data) {$/;"	f	signature:(ListHead *list, ListHead *data)
 list_del	src/list.h	/^list_del(ListHead *data) {$/;"	f	signature:(ListHead *data)
 list_empty	src/list.h	/^list_empty(ListHead *list) {$/;"	f	signature:(ListHead *list)
-list_entry	src/list.h	11;"	d
-list_foreach	src/list.h	52;"	d
+list_entry	src/list.h	13;"	d
+list_foreach	src/list.h	55;"	d
 list_init	src/list.h	/^list_init(ListHead *list) {$/;"	f	signature:(ListHead *list)
 main	src/glmtorrent.c	/^main ( int argc, char *argv[] )$/;"	f	signature:( int argc, char *argv[] )
 make_big_endian	src/util.h	/^int make_big_endian(int i);$/;"	p	signature:(int i)
@@ -250,6 +295,7 @@ make_tracker_request.c	src/make_tracker_request.c	1;"	F
 name	src/btdata.h	/^  char name[20]; $/;"	m	struct:_peer_t	access:public
 name	src/btdata.h	/^  char* name;     \/\/ 文件名$/;"	m	struct:_torrentmetadata	access:public
 next	src/list.h	/^	struct ListHead *prev, *next;$/;"	m	struct:ListHead	typeref:struct:ListHead::	access:public
+next	src/list.h	/^	struct hlist_node *next, **pprev;$/;"	m	struct:hlist_node	typeref:struct:hlist_node::hlist_node	access:public
 num_pieces	src/btdata.h	/^  int num_pieces; \/\/ 分片数量(为方便起见)$/;"	m	struct:_torrentmetadata	access:public
 numpeers	src/btdata.h	/^  int numpeers;$/;"	m	struct:_tracker_data	access:public
 oppsite_peer_id	src/PWP.h	/^    char oppsite_peer_id[20];$/;"	m	struct:p2p_ctrl_block	access:public
@@ -290,15 +336,16 @@ port	src/btdata.h	/^  int port;$/;"	m	struct:_announce_url_t	access:public
 port	src/btdata.h	/^  int port;$/;"	m	struct:_peerdata	access:public
 port	src/btdata.h	/^  int port;$/;"	m	struct:_tracker_request	access:public
 port	src/global.h	/^    int     port;$/;"	m	struct:globalArgs_t	access:public
+pprev	src/list.h	/^	struct hlist_node *next, **pprev;$/;"	m	struct:hlist_node	typeref:struct:hlist_node::	access:public
 preprocess_tracker_response	src/process_tracker_response.c	/^tracker_response* preprocess_tracker_response(int sockfd)$/;"	f	signature:(int sockfd)
 preprocess_tracker_response	src/util.h	/^tracker_response* preprocess_tracker_response(int sockfd);$/;"	p	signature:(int sockfd)
 prev	src/list.h	/^	struct ListHead *prev, *next;$/;"	m	struct:ListHead	typeref:struct:ListHead::ListHead	access:public
-process_p2p_conn	src/PWP.c	/^void* process_p2p_conn(void *fd){$/;"	f	signature:(void *fd)
+process_p2p_conn	src/PWP.c	/^void* process_p2p_conn(void *param){$/;"	f	signature:(void *param)
 process_p2p_conn	src/PWP.h	/^void* process_p2p_conn(void *);$/;"	p	signature:(void *)
 process_tracker_response.c	src/process_tracker_response.c	1;"	F
 pstr	src/PWP.h	/^    char pstr[19];$/;"	m	struct:handshake_msg	access:public
 pstrlen	src/PWP.h	/^    char pstrlen;$/;"	m	struct:handshake_msg	access:public
-readn	src/PWP.c	/^static int readn( int fd, void *bp_, size_t len)$/;"	f	file:	signature:( int fd, void *bp_, size_t len)
+readn	src/PWP.c	/^static int readn( int fd, void *bp, size_t len)$/;"	f	file:	signature:( int fd, void *bp, size_t len)
 readn	src/process_tracker_response.c	/^int readn(int fd, char *bp, size_t len)$/;"	f	signature:(int fd, char *bp, size_t len)
 recvline	src/util.c	/^int recvline(int fd, char **line)$/;"	f	signature:(int fd, char **line)
 recvline	src/util.h	/^int recvline(int fd, char **line);$/;"	p	signature:(int fd, char **line)
@@ -308,6 +355,9 @@ reserved	src/PWP.h	/^    char reserved[8];$/;"	m	struct:handshake_msg	access:pub
 reverse_byte_orderi	src/util.c	/^int reverse_byte_orderi(int i)$/;"	f	signature:(int i)
 reverse_byte_orderi	src/util.h	/^int reverse_byte_orderi(int i);$/;"	p	signature:(int i)
 s	src/bencode.h	/^		char *s;$/;"	m	union:be_node::__anon2	access:public
+send_have_msg	src/PWP.c	/^void send_have_msg(int connfd,int index){$/;"	f	signature:(int connfd,int index)
+send_interest_msg	src/PWP.c	/^void send_interest_msg(int connfd){$/;"	f	signature:(int connfd)
+send_request_msg	src/PWP.c	/^void send_request_msg(int connfd,int index,int begin,int length){$/;"	f	signature:(int connfd,int index,int begin,int length)
 set_bit	src/PWP.c	/^static char set_bit[8] = {1,2,4,8,16,32,64,128};$/;"	v	file:
 set_bit_at_index	src/PWP.c	/^static inline void set_bit_at_index(char *info, int index, int bit){$/;"	f	file:	signature:(char *info, int index, int bit)
 sha1.c	src/sha1.c	1;"	F
