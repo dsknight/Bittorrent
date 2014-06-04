@@ -8,7 +8,8 @@
 
 
 extern ListHead P2PCB_head;
- 
+extern int first_request;
+
 typedef struct p2p_ctrl_block{
     ListHead list;
     int connfd;
@@ -47,11 +48,17 @@ typedef struct p2p_thread_param{
 void* process_p2p_conn(void *);
 int generate_listenfd();
 void init_p2p_block(P2PCB *node);
+//send msgs funcs
+void send_keep_alive_msg(int);
+void send_choke_msg(int);
+void send_unchoke_msg(int);
 void send_interest_msg(int);
-void send_request_msg(int,int,int,int);
+void send_not_interest_msg(int);
 void send_have_msg(int,int);
-
-
+void send_bitfield_msg(int);
+void send_request_msg(int,int,int,int);
+void send_piece_msg(int,int,int,int);
+void send_cancel_msg(int,int,int,int);
 
 
 #endif

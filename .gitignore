@@ -5,3 +5,4 @@
 *.swp
 data/*
 *.orig
+log
