@@ -15,8 +15,9 @@
 #include "list.h"
 #include "global.h"
 
-static char set_bit[8] = {1,2,4,8,16,32,64,128};
 
+int first_request = 1;
+static char set_bit[8] = {1,2,4,8,16,32,64,128};
 
 static int readn( int fd, void *bp, size_t len)
 {
@@ -66,7 +67,7 @@ static inline void drop_conn(P2PCB *currP2P){
 }
 
 
-//whether a bitfield is empty
+//whether a bitfield is empty or complete
 static inline int is_bitfield_empty(char *bitfield,int len){
     int flag = 1;
     for(int i = 0; i < len; i++){
@@ -78,6 +79,97 @@ static inline int is_bitfield_empty(char *bitfield,int len){
     return flag;
 }
 
+static inline int is_bitfield_complete(char *bitfield,int len){
+    int flag = 1;
+    for(int i = 0; i < len; i++){
+        if(~bitfield[i] != 0){
+            flag = 0;
+            break;
+        }
+    }
+    return flag;
+}
+
+//select next piece/sub-piece
+int select_next_piece(){
+    int piece_num = globalInfo.g_torrentmeta->num_pieces;
+    ListHead *ptr;
+    list_foreach(ptr,&P2PCB_head){
+        P2PCB *tmpP2P = list_entry(ptr,P2PCB,list);
+        if(tmpP2P->peer_interested == 1 && tmpP2P->am_choking == 0){
+            char *bitfield1 = currTorrent.piece_info;
+            char *bitfield2 = tmpP2P->oppsite_piece_info;
+            for(int i = 0; i < piece_num; i++){
+                if(get_bit_at_index(bitfield1,i) == 0 && get_bit_at_index(bitfield2,i) == 1)
+                    return i;
+            }
+        }
+    }
+    return -1;
+}
+    
+int select_next_subpiece(int index,int *begin,int *length){
+    ListHead *ptr;
+    list_foreach(ptr,&downloading_piece_head){
+        downloading_piece *d_piece = list_entry(ptr,downloading_piece,list);
+        if(d_piece->index == index){
+            for(int i = 0; i < d_piece->sub_piece_size; i++){
+                if(d_piece->sub_piece_state[i] == 0){
+                    *begin = i * d_piece->sub_piece_size;
+                    int rest = globalInfo.g_torrentmeta->piece_len % d_piece->sub_piece_size;
+                    if(i == d_piece->sub_piece_size -1 && rest != 0){
+                        *length = rest;
+                        return 1;
+                    }
+                    else{
+                        *length = d_piece->sub_piece_size;
+                        return 1;
+                    }
+                }
+            }
+            for(int i = 0; i < d_piece->sub_piece_size; i++){
+                if(d_piece->sub_piece_state[i] == 1){
+                    *begin = i * d_piece->sub_piece_size;
+                    int rest = globalInfo.g_torrentmeta->piece_len % d_piece->sub_piece_size;
+                    if(i == d_piece->sub_piece_size -1 && rest != 0){
+                        *length = rest;
+                        return 1;
+                    }
+                    else{
+                        *length = d_piece->sub_piece_size;
+                        return 1;
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+//init structure downloading_piece
+downloading_piece *init_downloading_piece(int index){
+    downloading_piece *d_piece = (downloading_piece *)malloc(sizeof(downloading_piece));
+    d_piece->index = index;
+    d_piece->sub_piece_size = SUB_PIECE_SIZE;
+    int tmp1 = globalInfo.g_torrentmeta->piece_len/d_piece->sub_piece_size;
+    int tmp2 = (globalInfo.g_torrentmeta->piece_len%d_piece->sub_piece_size != 0);
+    d_piece->sub_piece_num = tmp1 + tmp2;
+    d_piece->downloading_num = 0;
+    d_piece->sub_piece_state = (int *)malloc(4*d_piece->sub_piece_num);
+    memset(d_piece->sub_piece_state,0,4*d_piece->sub_piece_num);
+    list_add_before(&downloading_piece_head,&d_piece->list);
+    return d_piece;
+}
+
+downloading_piece *find_downloading_piece(int index){
+    ListHead *ptr;
+    list_foreach(ptr,&downloading_piece_head){
+        downloading_piece *tmp = list_entry(ptr,downloading_piece,list);
+        if(tmp->index == index)
+            return tmp;
+    }
+    return NULL;
+}
 
 // init p2p control block
 void init_p2p_block(P2PCB *node){
@@ -86,6 +178,18 @@ void init_p2p_block(P2PCB *node){
     node->peer_choking = 1;
     node->peer_interested = 0;
     list_init(&node->list);
+}
+
+//whether a bitfield is interested about another
+int is_interested_bitfield(char *bitfield1, char *bitfield2, int len){
+    char interest_bitfield[len];
+    for(int i = 0; i < len; i++){
+        interest_bitfield[i] = (~bitfield1[i]) & bitfield2[i]; 
+    }
+    if(is_bitfield_empty(interest_bitfield,len))
+        return 0;
+    else
+        return 1;
 }
 
 //listening PEER_PORT for handshake,this function returns the listening sockfd 
@@ -116,20 +220,19 @@ void* process_p2p_conn(void *param){
     int is_connecter = currParam->is_connecter;
     free(currParam);
 
+    //init P2PCB
     P2PCB *currP2P = (P2PCB *)malloc(sizeof(P2PCB));
     memset(currP2P,0,sizeof(P2PCB));
     currP2P->connfd = connfd;
-    currP2P->am_choking = 1;
-    currP2P->am_interested = 0;
-    currP2P->peer_choking = 1;
-    currP2P->peer_interested = 0;
-    int piece_info_len = currTorrent.piece_num/8 + (currTorrent.piece_num%8 != 0);
+    init_p2p_block(currP2P); 
+    
+    int piece_info_len = globalInfo.g_torrentmeta->num_pieces/8 + (globalInfo.g_torrentmeta->num_pieces%8 != 0);
     currP2P->oppsite_piece_info = (char *)malloc(piece_info_len);
     memset(currP2P->oppsite_piece_info,0,piece_info_len);
     list_add_before(&P2PCB_head,&currP2P->list);
-
+    
+    //init variables
     char prefix[5];
-    //char *payload;
     handshake_msg msg;
 
     //readn handshake msg
@@ -168,7 +271,11 @@ void* process_p2p_conn(void *param){
         switch(prefix[4]){
             case 0 : currP2P->peer_choking = 1;break;//choke
             case 1 : currP2P->peer_choking = 0;break;//unchoke
-            case 2 : currP2P->am_interested = 1;break;//interested
+            case 2 : {//interested
+                         currP2P->am_interested = 1;
+                         send_unchoke_msg(connfd);
+                         break;
+                     }
             case 3 : currP2P->am_interested = 0;break;//not interested
             case 4 : {//have  
                          int index;
@@ -177,6 +284,35 @@ void* process_p2p_conn(void *param){
                          set_bit_at_index(currP2P->oppsite_piece_info,index,1);
                          if(get_bit_at_index(currTorrent.piece_info,index) == 0){//send interest
                              send_interest_msg(connfd);
+                             currP2P->peer_interested = 1;
+                             if(first_request == 1){//first request
+                                 if(currP2P->am_choking == 0 && currP2P->peer_interested == 1){
+                                     int begin;
+                                     int length;
+                                     select_next_subpiece(index,&begin,&length);
+                                     send_request_msg(connfd,index,begin,length);
+                                     first_request = 0;
+                                     //set the corresponding downloading piece
+                                     downloading_piece *d_piece = init_downloading_piece(index);
+                                     d_piece->downloading_num++;
+                                     int subpiece_index = begin/d_piece->sub_piece_size;
+                                     d_piece->sub_piece_state[subpiece_index] = 1;
+                                 }
+                             }
+                             else{
+                                 downloading_piece *d_piece = find_downloading_piece(index);
+                                 if(d_piece->downloading_num < MAX_REQUEST_NUM && 
+                                    d_piece->downloading_num != 0 && 
+                                    currP2P->am_choking == 0 && currP2P->peer_interested == 1){
+                                     int begin;
+                                     int length;
+                                     select_next_subpiece(index,&begin,&length);
+                                     send_request_msg(connfd,index,begin,length);
+                                     d_piece->downloading_num++;
+                                     int subpiece_index = begin/d_piece->sub_piece_size;
+                                     d_piece->sub_piece_state[subpiece_index] = 1;
+                                 }
+                             }
                          }
                          break;
                      }
@@ -203,14 +339,47 @@ void* process_p2p_conn(void *param){
                          //set oppsite piece info
                          memcpy(currP2P->oppsite_piece_info,bitfield,len-1);
 
-                         //to see whether oppsite peer interedted
-                         char interest_bitfield[piece_info_len];
-                         for(int i = 0; i < piece_info_len; i++){
-                            interest_bitfield[i] = (~currTorrent.piece_info[i]) &
-                                                    currP2P->oppsite_piece_info[i]; 
-                         }
-                         if(!is_bitfield_empty(interest_bitfield,piece_info_len)){
-                              send_interest_msg(connfd);
+                         //to see whether interedted about oppsite peer
+                         char *bitfield1 = currTorrent.piece_info;
+                         char *bitfield2 = currP2P->oppsite_piece_info;
+                         if(is_interested_bitfield(bitfield1,bitfield2,piece_info_len)){
+                             send_interest_msg(connfd);
+                             if(first_request == 1){//find the first interested piece then request
+                                 for(int index = 0; index < globalInfo.g_torrentmeta->num_pieces; index++){
+                                     if(get_bit_at_index(bitfield1,index) == 0 && 
+                                        get_bit_at_index(bitfield2,index) == 1){
+                                         if(currP2P->am_choking == 0 && currP2P->peer_interested == 1){
+                                             int begin;
+                                             int length;
+                                             select_next_subpiece(index,&begin,&length);
+                                             send_request_msg(connfd,index,begin,length);
+                                             first_request = 0;
+                                             //set the corresponding downloading piece
+                                             downloading_piece *d_piece = init_downloading_piece(index);
+                                             d_piece->downloading_num++;
+                                             int subpiece_index = begin/d_piece->sub_piece_size;
+                                             d_piece->sub_piece_state[subpiece_index] = 1;
+                                             break;
+                                         }
+                                     }
+                                 }
+                             }
+                             else{ 
+                                 for(int index = 0; index < globalInfo.g_torrentmeta->num_pieces; index++){
+                                     if(get_bit_at_index(bitfield1,index) == 0 && 
+                                        get_bit_at_index(bitfield2,index) == 1){
+                                         downloading_piece *d_piece = find_downloading_piece(index);
+                                         if(d_piece->downloading_num < MAX_REQUEST_NUM && 
+                                            d_piece->downloading_num != 0 && 
+                                            currP2P->am_choking == 0 && currP2P->peer_interested == 1){
+                                             int begin;
+                                             int length;
+                                             if(select_next_subpiece(index,&begin,&length))
+                                                send_request_msg(connfd,index,begin,length);
+                                         }
+                                     }
+                                 }
+                             }
                          }
                          break;
                      }
@@ -227,15 +396,7 @@ void* process_p2p_conn(void *param){
                         }
                         if(currP2P->am_interested == 1 && currP2P->peer_choking == 0){
                             //send the block
-                            /*char *block = get_block(index,begin,length);
-                              char piece_msg[13 + length];
-                             *(int *)piece_msg = 9 + length;
-                             piece_msg[4] = 7;
-                             *(int *)(piece_msg+5) = index;
-                             *(int *)(piece_msg+9) = begin;
-                             memcpy(piece_msg+13,block,length);
-                             send(connfd,piece_msg,13+length,0);
-                             free(block);*/
+                            send_piece_msg(connfd,index,begin,length);
                         }
                         else{
                             printf("the request is invalid,aninterested = %d,peer_choking = %d\n",
@@ -249,7 +410,65 @@ void* process_p2p_conn(void *param){
                         int index = ntohl(*(int*)payload);
                         int begin = ntohl(*(int*)(payload+4));
                         int length = len - 9;
+                        downloading_piece *d_piece = find_downloading_piece(index);
                         //set_block(index,begin,length,payload+8);
+                        if(!select_next_subpiece(index,&begin,&length)){//a piece is downloaded completely
+                            set_bit_at_index(currTorrent.piece_info,index,1);//update local bitfield
+                            list_del(&d_piece->list);
+
+                            if(is_bitfield_complete(currTorrent.piece_info,piece_info_len)){
+                                //the file has been dowmloaded completely
+                                printf("File has been downloaded completely\n");
+                                ListHead *ptr_;
+                                list_foreach(ptr_,&P2PCB_head){
+                                    P2PCB *tmpP2P = list_entry(ptr_,P2PCB,list);
+                                    if(tmpP2P->peer_interested == 1){
+                                        tmpP2P->peer_interested = 0;
+                                        send_not_interest_msg(tmpP2P->connfd);
+                                    }
+                                }
+                                continue;
+                            }
+
+                            ListHead *ptr;
+                            int next_index = select_next_piece();
+                            //update peer_interested,send not interested msg,request for next piece
+                            list_foreach(ptr,&P2PCB_head){
+                                P2PCB *tmpP2P = list_entry(ptr,P2PCB,list);
+                                char *bitfield1 = currTorrent.piece_info;
+                                char *bitfield2 = tmpP2P->oppsite_piece_info;
+                                if(!is_interested_bitfield(bitfield1,bitfield2,piece_info_len) && 
+                                    tmpP2P->peer_interested == 1){//change to be not interested
+                                    send_not_interest_msg(tmpP2P->connfd);
+                                    tmpP2P->peer_interested = 0;
+                                }
+                                if(next_index == -1)
+                                    continue;
+                                downloading_piece *next_d_piece = init_downloading_piece(next_index);
+                                //request for next piece
+                                static int no_more_sub_piece = 0;
+                                if(no_more_sub_piece)
+                                    continue;
+                                if(next_d_piece->downloading_num < MAX_REQUEST_NUM && 
+                                   get_bit_at_index(bitfield2,next_index) == 1 &&
+                                   tmpP2P->am_choking == 0 && tmpP2P->peer_interested == 1){
+                                    int begin_;
+                                    int length_;
+                                    if(!select_next_subpiece(next_index,&begin_,&length_))
+                                        no_more_sub_piece = 1;//no more sub piece
+                                    send_request_msg(tmpP2P->connfd,next_index,begin_,length_);
+                                    next_d_piece->downloading_num++;
+                                    int subpiece_index = begin_/next_d_piece->sub_piece_size;
+                                    next_d_piece->sub_piece_state[subpiece_index] = 1;
+                                }   
+                            }
+                        }
+                        else{// request for next sub piece
+                            int subpiece_index = begin/d_piece->sub_piece_size;
+                            d_piece->sub_piece_state[subpiece_index] = 2;
+                            if(currP2P->peer_interested == 1 && currP2P->am_choking == 0)
+                                send_request_msg(connfd,index,begin,length);
+                        }
                         break;
                      }
             case 8 : {//cancel
@@ -285,6 +504,39 @@ void send_interest_msg(int connfd){
     *(int*)interest_msg = htonl(1);
     interest_msg[4] = 2;
     send(connfd,interest_msg,5,0);
+}
+
+void send_choke_msg(int connfd){
+    char choke_msg[5];
+    *(int*)choke_msg = htonl(1);
+    choke_msg[4] = 0;
+    send(connfd,choke_msg,5,0);
+}
+
+void send_not_interest_msg(int connfd){
+    char not_interest_msg[5];
+    *(int*)not_interest_msg = htonl(1);
+    not_interest_msg[4] = 2;
+    send(connfd,not_interest_msg,5,0);
+}
+
+void send_unchoke_msg(int connfd){
+    char unchoke_msg[5];
+    *(int*)unchoke_msg = htonl(1);
+    unchoke_msg[4] = 0;
+    send(connfd,unchoke_msg,5,0);
+}   
+
+void send_piece_msg(int connfd, int index, int begin, int length){
+    char block[length];
+    //get_block(index,begin,length,block);
+    char piece_msg[13 + length];
+    *(int *)piece_msg = 9 + length;
+    piece_msg[4] = 7;
+    *(int *)(piece_msg+5) = index;
+    *(int *)(piece_msg+9) = begin;
+    memcpy(piece_msg+13,block,length);
+    send(connfd,piece_msg,13+length,0);
 }
 
 

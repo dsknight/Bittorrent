@@ -41,6 +41,7 @@ const char *optstring = "p:i:vh?";
 struct globalInfo_t globalInfo;
 
 ListHead P2PCB_head;
+ListHead downloading_piece_head;
 torrent_info currTorrent;
 
 void useage(){

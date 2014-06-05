@@ -5,3 +5,5 @@
 *.swp
 data/*
 *.orig
+log
+tag
