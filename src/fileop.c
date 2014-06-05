@@ -24,7 +24,22 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <assert.h>
+#include <arpa/inet.h>
 #include "fileop.h"
+#include "sha1.h"
+
+static char set_bit[8] = {1,2,4,8,16,32,64,128};
+
+static inline void set_bit_at_index(char *info, int index, int bit){
+    assert(bit == 0 || bit == 1);
+    int offset = 7 - index%8;
+    if(bit)
+        info[index/8] = info[index/8] | set_bit[offset];
+    else
+        info[index/8] = info[index/8] & (~set_bit[offset]);
+}
+
 // return size of file
 int filesize(FILE *fp){
     int cur = ftell(fp);
@@ -135,6 +150,55 @@ int store_sub_piece(FILE *fp, char *buf, int len, int piece_num, int piece_size)
     }
     fseek(fp, piece_num * piece_size, SEEK_SET);
     return fwrite(buf, sizeof(char), len, fp);
+}
+
+// generate bitfield 
+char *gen_bitfield(FILE *fp, char *piece_hash, int piece_len, int piece_num){
+    int cursize = filesize(fp);
+    char *bitfield = (char *)malloc(piece_num);
+    char *hashbuf = (char *)malloc(piece_len);
+    typedef struct {int hash[5];} *hashptr_t;
+    hashptr_t ptr = (hashptr_t) piece_hash;
+    int i;
+    for (i = 0; i < piece_num; i++){
+        if (get_piece(fp, hashbuf, i, piece_len) == -1){
+            printf("Error when read piece to generate bitfield\n");
+            assert(false);
+        }
+        SHA1Context sha;
+        SHA1Reset(&sha);
+        SHA1Input(&sha, (const unsigned char*)hashbuf, (i != piece_num - 1)?piece_len:(cursize - (piece_num - 1) * piece_len));
+        if(!SHA1Result(&sha))
+        {
+            printf("FAILURE in count sha when generate bitfield\n");
+            assert(false);
+        }
+        int j;
+        for (j = 0; j < 5; j++){
+            sha.Message_Digest[j] = htonl(sha.Message_Digest[j]);
+        }
+#ifdef DEBUG
+        for (j = 0; j < 5; j++){
+            printf("%08X ", sha.Message_Digest[j]);
+        }
+        printf("\nvs\n");
+        for (j = 0; j < 5; j++){
+            printf("%08X ", ptr->hash[j]);
+        }
+        printf("\n\n");
+#endif
+        if (memcmp(sha.Message_Digest, ptr->hash, 20) == 0){
+            printf("write 1\n");
+            set_bit_at_index(bitfield, i, 1);
+        } else {
+            printf("write 0\n");
+            set_bit_at_index(bitfield, i, 0);
+        }
+        ptr++;
+    }
+
+    free(hashbuf);
+    return bitfield;
 }
 /* 
  * ===  FUNCTION  ======================================================================

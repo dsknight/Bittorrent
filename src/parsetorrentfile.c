@@ -77,8 +77,9 @@ torrentmetadata_t* parsetorrentfile(char* filename)
         int j;
         if(!strncmp(ben_res->val.d[i].key,"announce",strlen("announce")))
         {
-            ret->announce = (char*)malloc(strlen(ben_res->val.d[i].val->val.s)*sizeof(char));
-            memcpy(ret->announce,ben_res->val.d[i].val->val.s,strlen(ben_res->val.d[i].val->val.s));
+            ret->announce = (char*)malloc(be_str_len(ben_res->val.d[i].val) + 1);
+            memset(ret->announce, 0, be_str_len(ben_res->val.d[i].val) + 1);
+            memcpy(ret->announce,ben_res->val.d[i].val->val.s,be_str_len(ben_res->val.d[i].val));
             filled++;
         }
         // info是一个字典, 它还有一些其他我们关心的键
@@ -101,8 +102,9 @@ torrentmetadata_t* parsetorrentfile(char* filename)
                 }
                 if(!strncmp(idict[j].key,"name",strlen("name")))
                 {
-                    ret->name = (char*)malloc(strlen(idict[j].val->val.s)*sizeof(char));
-                    memcpy(ret->name,idict[j].val->val.s,strlen(idict[j].val->val.s));
+                    ret->name = (char*)malloc(be_str_len(idict[j].val) + 1);
+                    memset(ret->name, 0, be_str_len(idict[j].val) + 1);
+                    memcpy(ret->name,idict[j].val->val.s,be_str_len(idict[j].val));
                     filled++;
                 }
                 if(!strncmp(idict[j].key,"piece length",strlen("piece length")))

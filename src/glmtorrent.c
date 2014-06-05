@@ -33,6 +33,7 @@
 #include "util.h"
 #include "global.h"
 #include "PWP.h"
+#include "fileop.h"
 
 struct globalArgs_t globalArgs;
 const char *optstring = "p:i:vh?";
@@ -129,6 +130,15 @@ main ( int argc, char *argv[] )
         printf("Error when parsing torrent file\n");
         return -1;
     }
+    globalInfo.fp = createfile(globalInfo.g_torrentmeta->name, globalInfo.g_torrentmeta->length); 
+    globalInfo.bitfield = gen_bitfield(globalInfo.fp, globalInfo.g_torrentmeta->pieces, globalInfo.g_torrentmeta->piece_len, globalInfo.g_torrentmeta->num_pieces);   
+#ifdef DEBUG
+    int i;
+    printf("bitfield:");
+    for (i = 0; i <= globalInfo.g_torrentmeta->num_pieces / 8; i++)
+        printf("%X ", globalInfo.bitfield[i]);
+    printf("\n");
+#endif 
     // <-- end -->
     
     announce_url_t *announce_info = parse_announce_url(globalInfo.g_torrentmeta->announce);

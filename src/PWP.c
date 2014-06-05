@@ -47,6 +47,7 @@ static inline int get_bit_at_index(char *info, int index){
     int offset = 7 - index%8;
     return (ch >> offset) & 1;
 }
+
 static inline void set_bit_at_index(char *info, int index, int bit){
     assert(bit == 0 || bit == 1);
     int offset = 7 - index%8;
