@@ -27,13 +27,6 @@ typedef struct p2p_ctrl_block{
     char *oppsite_piece_info;
 }P2PCB;
 
-typedef struct handshake_msg{
-    char pstrlen;
-    char pstr[19];
-    char reserved[8];
-    char info_hash[20];
-    char peer_id[20];
-}handshake_msg;
 
 typedef struct torrent_info{
     char info_hash[20];
@@ -41,7 +34,6 @@ typedef struct torrent_info{
     int piece_num;
     char *piece_info;
 }torrent_info;
-extern torrent_info currTorrent;
 
 typedef struct p2p_thread_param{
     int connfd;
@@ -77,5 +69,6 @@ void send_cancel_msg(int,int,int,int);
 
 // check whether exist a thread for an ip
 bool exist_ip(char *ip);
+void send_handshake_msg(int);
 
 #endif
