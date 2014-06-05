@@ -502,6 +502,9 @@ void* process_p2p_conn(void *param){
     }
 
     printf("exit the p2p msg process\n");
+    list_del(&currP2P->list);
+    free(currP2P->oppsite_piece_info);
+    free(currP2P);
     return NULL;
 }
 
