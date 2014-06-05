@@ -231,22 +231,33 @@ void* process_p2p_conn(void *param){
     memset(currP2P->oppsite_piece_info,0,piece_info_len);
     list_add_before(&P2PCB_head,&currP2P->list);
     
-    //init variables
-    char prefix[5];
-    handshake_msg msg;
+
+    //if is_connecter,send handshake msg
+    if(is_connecter){
+        send_handshake_msg(connfd);
+    }
 
     //readn handshake msg
-    if(readn(connfd,&msg,sizeof(handshake_msg)) > 0){
+    char pstrlen;
+    if(readn(connfd,&pstrlen,1) > 0){
+        char pstr[pstrlen];
+        char reserved[8];
+        char info_hash[20];
+        char peer_id[20];
+        readn(connfd,pstr,pstrlen);
+        readn(connfd,reserved,8);
+        readn(connfd,info_hash,20);
+        readn(connfd,peer_id,20);
         printf("handshake recieved\n");
-        if(strncmp(msg.info_hash, (char *)globalInfo.g_torrentmeta->info_hash,20) != 0){//wrong hash_info 
+        if(strncmp(info_hash, (char *)globalInfo.g_torrentmeta->info_hash,20) != 0){//wrong hash_info 
             printf("wrong handshake msg\n");
             drop_conn(currP2P);
             return NULL;
         }
         else{
-            memcpy(currP2P->oppsite_peer_id,msg.peer_id,20);
+            memcpy(currP2P->oppsite_peer_id,peer_id,20);
             if(!is_connecter)
-                send(connfd,&msg,sizeof(handshake_msg),0);//send back with local peer_id
+                send_handshake_msg(connfd);//send back with local peer_id
         }
     }
 
@@ -260,6 +271,7 @@ void* process_p2p_conn(void *param){
     }
 
     //process msgs
+    char prefix[5];
     while(readn(connfd, prefix, 4) > 0){
         int len = ntohl(*(int *)prefix);
         if(len == 0){//keep-alive
@@ -538,5 +550,21 @@ void send_piece_msg(int connfd, int index, int begin, int length){
     memcpy(piece_msg+13,block,length);
     send(connfd,piece_msg,13+length,0);
 }
+
+void send_handshake_msg(int connfd){
+    char *pstr = "BitTorrent protocol";
+    char pstrlen = strlen(pstr);
+    char handshake_msg[49+pstrlen];
+    memset(handshake_msg,0,49+pstrlen);
+    handshake_msg[0] = pstrlen;
+    memcpy(handshake_msg+1,pstr,pstrlen);
+    memcpy(handshake_msg+9,globalInfo.g_torrentmeta->info_hash,20);
+    memcpy(handshake_msg+29,globalInfo.g_my_id,20);
+    send(connfd,handshake_msg,49+pstrlen,0);
+}
+
+
+
+
 
 
