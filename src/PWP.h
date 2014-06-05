@@ -3,11 +3,14 @@
 
 
 #define PEER_PORT 6666
+#define SUB_PIECE_SIZE 16384
+#define MAX_REQUEST_NUM 5
 
 #include "list.h"
 
 
 extern ListHead P2PCB_head;
+extern ListHead downloading_piece_head;
 extern int first_request;
 
 typedef struct p2p_ctrl_block{
@@ -42,6 +45,15 @@ typedef struct p2p_thread_param{
     int connfd;
     int is_connecter;//1:this peer connect to another; 0:oppsite
 }p2p_thread_param;
+
+typedef struct downloading_piece{
+    int index;
+    int sub_piece_size;
+    int sub_piece_num;
+    int *sub_piece_state;//sub_piece_state[i] == 0/1/2  : NO.i subpiece not-download/downloading/finish
+    int downloading_num;//current downloading request number
+    ListHead list;
+}downloading_piece;
 
 
 //functions
