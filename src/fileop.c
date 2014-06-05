@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include "fileop.h"
 #include "sha1.h"
+#include "global.h"
 
 static char set_bit[8] = {1,2,4,8,16,32,64,128};
 
@@ -131,25 +132,33 @@ int store_piece(FILE *fp, char *buf, int piece_num, int piece_size){
     return fwrite(buf, sizeof(char), piece_size, fp);
 }
 
-int get_sub_piece(FILE *fp, char *buf, int len, int piece_num, int piece_size){
+// read sub piece from file
+int get_sub_piece(FILE *fp, char *buf, int begin, int len, int piece_num, int piece_size){
     int cursize = filesize(fp);
     if (cursize < piece_num * piece_size + len){
         printf("read sub piece beyond file size\n");
         return -1;
     }
-    fseek(fp, piece_num * piece_size, SEEK_SET);
+    fseek(fp, piece_num * piece_size + begin, SEEK_SET);
     return fread(buf, sizeof(char), len, fp);
 }
 
 // write sub piece to file
-int store_sub_piece(FILE *fp, char *buf, int len, int piece_num, int piece_size){
+int store_sub_piece(FILE *fp, char *buf, int begin, int len, int piece_num, int piece_size){
     int cursize = filesize(fp);
     if (cursize < piece_num * piece_size + len){
         printf("write sub piece beyond file size\n");
         return -1;
     }
-    fseek(fp, piece_num * piece_size, SEEK_SET);
+    fseek(fp, piece_num * piece_size + begin, SEEK_SET);
     return fwrite(buf, sizeof(char), len, fp);
+}
+
+void get_block(int index, int begin, int length, char *block){
+    get_sub_piece(globalInfo.fp, block, begin, length, index, globalInfo.g_torrentmeta->piece_len);
+}
+void set_block(int index, int begin, int length, char *block){
+    store_sub_piece(globalInfo.fp, block, begin, length, index, globalInfo.g_torrentmeta->piece_len);
 }
 
 // generate bitfield 

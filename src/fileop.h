@@ -25,8 +25,10 @@ bool exists(char *filepath);
 FILE *createfile(char *filepath, int size);
 int get_piece(FILE *fp, char *buf, int piece_num, int piece_size);
 int store_piece(FILE *fp, char *buf, int piece_num, int piece_size);
-int get_sub_piece(FILE *fp, char *buf, int len, int piece_num, int piece_size);
-int store_sub_piece(FILE *fp, char *buf, int len, int piece_num, int piece_size);
+int get_sub_piece(FILE *fp, char *buf, int begin, int len, int piece_num, int piece_size);
+int store_sub_piece(FILE *fp, char *buf, int begin, int len, int piece_num, int piece_size);
+void get_block(int index, int begin, int length, char *block);
+void set_block(int index, int begin, int length, char *block);
 char *gen_bitfield(FILE *fp, char *piece_hash, int piece_len, int piece_num);
 
 #endif

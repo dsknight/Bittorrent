@@ -14,7 +14,7 @@
 #include "PWP.h"
 #include "list.h"
 #include "global.h"
-
+#include "fileop.h"
 
 int first_request = 1;
 static char set_bit[8] = {1,2,4,8,16,32,64,128};
@@ -411,7 +411,7 @@ void* process_p2p_conn(void *param){
                         int begin = ntohl(*(int*)(payload+4));
                         int length = len - 9;
                         downloading_piece *d_piece = find_downloading_piece(index);
-                        //set_block(index,begin,length,payload+8);
+                        set_block(index,begin,length,payload+8);
                         if(!select_next_subpiece(index,&begin,&length)){//a piece is downloaded completely
                             set_bit_at_index(currTorrent.piece_info,index,1);//update local bitfield
                             list_del(&d_piece->list);
@@ -529,7 +529,7 @@ void send_unchoke_msg(int connfd){
 
 void send_piece_msg(int connfd, int index, int begin, int length){
     char block[length];
-    //get_block(index,begin,length,block);
+    get_block(index,begin,length,block);
     char piece_msg[13 + length];
     *(int *)piece_msg = 9 + length;
     piece_msg[4] = 7;
