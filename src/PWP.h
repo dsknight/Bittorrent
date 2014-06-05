@@ -6,6 +6,7 @@
 #define SUB_PIECE_SIZE 16384
 #define MAX_REQUEST_NUM 5
 
+#include <stdbool.h>
 #include "list.h"
 
 
@@ -22,6 +23,7 @@ typedef struct p2p_ctrl_block{
     int peer_choking;
     int peer_interested;
     char oppsite_peer_id[20];
+    char oppsite_peer_ip[20];
     char *oppsite_piece_info;
 }P2PCB;
 
@@ -44,6 +46,7 @@ extern torrent_info currTorrent;
 typedef struct p2p_thread_param{
     int connfd;
     int is_connecter;//1:this peer connect to another; 0:oppsite
+    char ip[20];
 }p2p_thread_param;
 
 typedef struct downloading_piece{
@@ -72,5 +75,7 @@ void send_request_msg(int,int,int,int);
 void send_piece_msg(int,int,int,int);
 void send_cancel_msg(int,int,int,int);
 
+// check whether exist a thread for an ip
+bool exist_ip(char *ip);
 
 #endif

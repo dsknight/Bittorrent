@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include "PWP.h"
 #include "list.h"
 #include "global.h"
@@ -88,6 +89,16 @@ static inline int is_bitfield_complete(char *bitfield,int len){
         }
     }
     return flag;
+}
+
+bool exist_ip(char *ip){
+    ListHead *ptr;
+    list_foreach(ptr, &P2PCB_head){
+        P2PCB *tmpP2P = list_entry(ptr,P2PCB,list);
+        if (strcmp(tmpP2P->oppsite_peer_ip, ip) == 0)
+            return true;
+    }
+    return false;
 }
 
 //select next piece/sub-piece
@@ -218,13 +229,14 @@ void* process_p2p_conn(void *param){
     p2p_thread_param *currParam = (p2p_thread_param *)param;
     int connfd = currParam->connfd;
     int is_connecter = currParam->is_connecter;
-    free(currParam);
 
     //init P2PCB
     P2PCB *currP2P = (P2PCB *)malloc(sizeof(P2PCB));
     memset(currP2P,0,sizeof(P2PCB));
     currP2P->connfd = connfd;
+    strcpy(currP2P->oppsite_peer_ip, currParam->ip);
     init_p2p_block(currP2P); 
+    free(currParam);
     
     int piece_info_len = globalInfo.g_torrentmeta->num_pieces/8 + (globalInfo.g_torrentmeta->num_pieces%8 != 0);
     currP2P->oppsite_piece_info = (char *)malloc(piece_info_len);

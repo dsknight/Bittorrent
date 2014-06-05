@@ -44,6 +44,8 @@ ListHead P2PCB_head;
 ListHead downloading_piece_head;
 torrent_info currTorrent;
 
+int listenfd;
+
 void useage(){
     printf("Useage:\n\t./simpletorrent [-i isseed] [-p port] [-v] [-h] torrentpath\n\n");
     printf("[-i isseed]\n\tisseed is optional, 1 indicates this is a seed and won't contact other clients.");
@@ -61,6 +63,31 @@ void init_peer_id(char id[20]){
     for (i = 0; i < 20; i++){
         id[i] = rand() % 0x100;
     }
+}
+
+void *daemon(void *arg){
+    int sockfd = (int)arg;
+
+    for(;;){
+        struct sockaddr_in cliaddr;
+        socklen_t cliaddr_len;
+        cliaddr_len = sizeof(struct sockaddr_in);
+
+        pthread_testcancel();
+
+        int connfd = accept(sockfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
+        printf("receive a connect from %s\n", inet_ntoa(cliaddr.sin_addr));
+        pthread_t tid;
+        p2p_thread_param *param = (p2p_thread_param *)malloc(sizeof(p2p_thread_param));
+        param->connfd = connfd;
+        param->is_connecter = 0;
+        strcpy(param->ip, inet_ntoa(cliaddr.sin_addr));
+        if (pthread_create(&tid, NULL, process_p2p_conn, param) != 0){
+            printf("Error when create thread accept request\n");
+        }
+    }
+
+    return NULL;
 }
 
 /* 
@@ -142,6 +169,9 @@ main ( int argc, char *argv[] )
 #endif 
     // <-- end -->
     
+    // <-- create socket listen to port -->
+    listenfd = make_listen_port(globalInfo.g_peer_port);
+
     announce_url_t *announce_info = parse_announce_url(globalInfo.g_torrentmeta->announce);
     if (globalArgs.verbose == true){
         printf("host: %s:%d\n", announce_info->hostname, announce_info->port);
@@ -188,13 +218,28 @@ main ( int argc, char *argv[] )
         free(tr->data);
         free(tr);
 
+        int i;
 #ifdef DEBUG
         printf("Num Peers: %d\n", globalInfo.g_tracker_response->numpeers);
-        int i;
         for (i = 0; i < globalInfo.g_tracker_response->numpeers; i++){
             printf("Peer ip: %s:%d\n", globalInfo.g_tracker_response->peers[i].ip, globalInfo.g_tracker_response->peers[i].port);
         }
 #endif
+        for (i = 0; i < globalInfo.g_tracker_response->numpeers; i++){
+            if (!exist_ip(globalInfo.g_tracker_response->peers[i].ip)){
+                int connfd = connect_to_host(globalInfo.g_tracker_response->peers[i].ip, globalInfo.g_tracker_response->peers[i].port);
+                pthread_t tid;
+                p2p_thread_param *param = (p2p_thread_param *)malloc(sizeof(p2p_thread_param));
+                param->connfd = connfd;
+                param->is_connecter = 1;
+                strcpy(param->ip, globalInfo.g_tracker_response->peers[i].ip);
+                if (pthread_create(&tid, NULL, process_p2p_conn, param) != 0){
+                    printf("Error when create thread to connect peer\n");
+                }
+
+            }
+        }
+
         printf("sleep %d seconds\n", globalInfo.g_tracker_response->interval);
         sleep(globalInfo.g_tracker_response->interval);
     }
