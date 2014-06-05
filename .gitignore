@@ -6,4 +6,4 @@
 data/*
 *.orig
 log
-tag
+tags

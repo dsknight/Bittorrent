@@ -97,7 +97,7 @@ int select_next_piece(){
     list_foreach(ptr,&P2PCB_head){
         P2PCB *tmpP2P = list_entry(ptr,P2PCB,list);
         if(tmpP2P->peer_interested == 1 && tmpP2P->am_choking == 0){
-            char *bitfield1 = currTorrent.piece_info;
+            char *bitfield1 = globalInfo.bitfield;
             char *bitfield2 = tmpP2P->oppsite_piece_info;
             for(int i = 0; i < piece_num; i++){
                 if(get_bit_at_index(bitfield1,i) == 0 && get_bit_at_index(bitfield2,i) == 1)
@@ -251,11 +251,11 @@ void* process_p2p_conn(void *param){
     }
 
     //send bitfield msg
-    if(is_bitfield_empty(currTorrent.piece_info,piece_info_len)){
+    if(is_bitfield_empty(globalInfo.bitfield,piece_info_len)){
         char bitfield_msg[5+piece_info_len];
         *(int*)bitfield_msg = htonl(1+piece_info_len);
         bitfield_msg[4] = 5;
-        strncpy(bitfield_msg+5,currTorrent.piece_info,piece_info_len);
+        strncpy(bitfield_msg+5,globalInfo.bitfield,piece_info_len);
         send(connfd,bitfield_msg,5+piece_info_len,0);
     }
 
@@ -282,7 +282,7 @@ void* process_p2p_conn(void *param){
                          readn(connfd,&index,4);
                          index = ntohl(index);
                          set_bit_at_index(currP2P->oppsite_piece_info,index,1);
-                         if(get_bit_at_index(currTorrent.piece_info,index) == 0){//send interest
+                         if(get_bit_at_index(globalInfo.bitfield,index) == 0){//send interest
                              send_interest_msg(connfd);
                              currP2P->peer_interested = 1;
                              if(first_request == 1){//first request
@@ -340,7 +340,7 @@ void* process_p2p_conn(void *param){
                          memcpy(currP2P->oppsite_piece_info,bitfield,len-1);
 
                          //to see whether interedted about oppsite peer
-                         char *bitfield1 = currTorrent.piece_info;
+                         char *bitfield1 = globalInfo.bitfield;
                          char *bitfield2 = currP2P->oppsite_piece_info;
                          if(is_interested_bitfield(bitfield1,bitfield2,piece_info_len)){
                              send_interest_msg(connfd);
@@ -413,10 +413,10 @@ void* process_p2p_conn(void *param){
                         downloading_piece *d_piece = find_downloading_piece(index);
                         set_block(index,begin,length,payload+8);
                         if(!select_next_subpiece(index,&begin,&length)){//a piece is downloaded completely
-                            set_bit_at_index(currTorrent.piece_info,index,1);//update local bitfield
+                            set_bit_at_index(globalInfo.bitfield,index,1);//update local bitfield
                             list_del(&d_piece->list);
 
-                            if(is_bitfield_complete(currTorrent.piece_info,piece_info_len)){
+                            if(is_bitfield_complete(globalInfo.bitfield,piece_info_len)){
                                 //the file has been dowmloaded completely
                                 printf("File has been downloaded completely\n");
                                 ListHead *ptr_;
@@ -435,7 +435,7 @@ void* process_p2p_conn(void *param){
                             //update peer_interested,send not interested msg,request for next piece
                             list_foreach(ptr,&P2PCB_head){
                                 P2PCB *tmpP2P = list_entry(ptr,P2PCB,list);
-                                char *bitfield1 = currTorrent.piece_info;
+                                char *bitfield1 = globalInfo.bitfield;
                                 char *bitfield2 = tmpP2P->oppsite_piece_info;
                                 if(!is_interested_bitfield(bitfield1,bitfield2,piece_info_len) && 
                                     tmpP2P->peer_interested == 1){//change to be not interested
@@ -538,6 +538,5 @@ void send_piece_msg(int connfd, int index, int begin, int length){
     memcpy(piece_msg+13,block,length);
     send(connfd,piece_msg,13+length,0);
 }
-
 
 
