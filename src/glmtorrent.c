@@ -100,6 +100,8 @@ void *daemon(void *arg){
 int
 main ( int argc, char *argv[] )
 {
+    list_init(&P2PCB_head);
+    list_init(&downloading_piece_head);
     // <-- deal with argument -->
     globalArgs.port = 6881;
     globalArgs.isseed = 0;
