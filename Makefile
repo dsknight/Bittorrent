@@ -1,13 +1,15 @@
 CC=clang
-CFLAGS= -std=c99 -g -MD
+CFLAGS= -std=c99 -g -MD -pthread
 LIBS= -lpthread
 TARGET=simpletorrent
 SOURCES=$(shell find src/ -name "*.c")
 OBJS=$(SOURCES:.c=.o)
 
 all: ${TARGET}
+	cp ./bin/$(TARGET) ./bin/test1 
+	cp ./bin/$(TARGET) ./bin/test2
 
-debug:CFLAGS = -std=c99 -g -MD -D DEBUG
+debug:CFLAGS = -std=c99 -g -MD -D DEBUG -pthread
 debug:all
 
 ${TARGET}: ${OBJS}
