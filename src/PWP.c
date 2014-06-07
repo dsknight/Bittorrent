@@ -578,7 +578,7 @@ void send_not_interest_msg(int connfd){
     printf("send not interest\n");
     char not_interest_msg[5];
     *(int*)not_interest_msg = htonl(1);
-    not_interest_msg[4] = 2;
+    not_interest_msg[4] = 3;
     send(connfd,not_interest_msg,5,0);
 }
 
@@ -586,7 +586,7 @@ void send_unchoke_msg(int connfd){
     printf("send unchoke\n");
     char unchoke_msg[5];
     *(int*)unchoke_msg = htonl(1);
-    unchoke_msg[4] = 0;
+    unchoke_msg[4] = 1;
     send(connfd,unchoke_msg,5,0);
 }   
 
