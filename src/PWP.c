@@ -110,8 +110,12 @@ int select_next_piece(){
             char *bitfield1 = globalInfo.bitfield;
             char *bitfield2 = tmpP2P->oppsite_piece_info;
             for(int i = 0; i < piece_num; i++){
-                if(get_bit_at_index(bitfield1,i) == 0 && get_bit_at_index(bitfield2,i) == 1)
+                if(get_bit_at_index(bitfield1,i) == 0 && get_bit_at_index(bitfield2,i) == 1){
+#ifdef DEBUG
+                    printf("next piece is: %d \n",i);
+#endif
                     return i;
+                }
             }
         }
     }
@@ -129,10 +133,12 @@ int select_next_subpiece(int index,int *begin,int *length){
                     int rest = globalInfo.g_torrentmeta->piece_len % d_piece->sub_piece_size;
                     if(i == d_piece->sub_piece_size -1 && rest != 0){
                         *length = rest;
+                        printf("next subpiece is index:%d begin:%d length:%d\n",index,*begin,*length);
                         return 1;
                     }
                     else{
                         *length = d_piece->sub_piece_size;
+                        printf("next subpiece is index:%d begin:%d length:%d\n",index,*begin,*length);
                         return 1;
                     }
                 }
@@ -143,10 +149,12 @@ int select_next_subpiece(int index,int *begin,int *length){
                     int rest = globalInfo.g_torrentmeta->piece_len % d_piece->sub_piece_size;
                     if(i == d_piece->sub_piece_size -1 && rest != 0){
                         *length = rest;
+                        printf("next subpiece is index:%d begin:%d length:%d\n",index,*begin,*length);
                         return 1;
                     }
                     else{
                         *length = d_piece->sub_piece_size;
+                        printf("next subpiece is index:%d begin:%d length:%d\n",index,*begin,*length);
                         return 1;
                     }
                 }
@@ -309,11 +317,12 @@ void* process_p2p_conn(void *param){
             readn(connfd,prefix+4,1);
         }
         switch(prefix[4]){
-            case 0 : currP2P->peer_choking = 1;break;//choke
-            case 1 : currP2P->peer_choking = 0;break;//unchoke
+            case 0 : currP2P->am_choking = 1;break;//choke
+            case 1 : currP2P->am_choking = 0;break;//unchoke
             case 2 : {//interested
                          currP2P->am_interested = 1;
                          send_unchoke_msg(connfd);
+                         currP2P->peer_choking = 0;
                          break;
                      }
             case 3 : currP2P->am_interested = 0;break;//not interested
@@ -384,19 +393,23 @@ void* process_p2p_conn(void *param){
                          char *bitfield2 = currP2P->oppsite_piece_info;
                          if(is_interested_bitfield(bitfield1,bitfield2,piece_info_len)){
                              send_interest_msg(connfd);
+                             currP2P->peer_interested = 1;
+                             currP2P->am_choking = 0;
                              if(first_request == 1){//find the first interested piece then request
                                  for(int index = 0; index < globalInfo.g_torrentmeta->num_pieces; index++){
                                      if(get_bit_at_index(bitfield1,index) == 0 && 
                                         get_bit_at_index(bitfield2,index) == 1){
                                          if(currP2P->am_choking == 0 && currP2P->peer_interested == 1){
+                                             //set the corresponding downloading piece
+                                             downloading_piece *d_piece = init_downloading_piece(index);
+                                             d_piece->downloading_num++;
+                                             //send the request
                                              int begin;
                                              int length;
                                              select_next_subpiece(index,&begin,&length);
                                              send_request_msg(connfd,index,begin,length);
                                              first_request = 0;
-                                             //set the corresponding downloading piece
-                                             downloading_piece *d_piece = init_downloading_piece(index);
-                                             d_piece->downloading_num++;
+                                             //change state
                                              int subpiece_index = begin/d_piece->sub_piece_size;
                                              d_piece->sub_piece_state[subpiece_index] = 1;
                                              break;
