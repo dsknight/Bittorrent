@@ -22,6 +22,8 @@ ${TARGET}: ${OBJS}
 
 clean:
 	rm -rf bin/${TARGET}
+	rm -rf bin/test1/${TARGET}
+	rm -rf bin/test1/${TARGET}
 	rm -rf src/*.core
 	rm -rf $(OBJS) $(OBJS:.o=.d)
 	rm -rf ${TARGET} 
