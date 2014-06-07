@@ -439,6 +439,7 @@ void* process_p2p_conn(void *param){
                         if(!select_next_subpiece(index,&begin,&length)){//a piece is downloaded completely
                             set_bit_at_index(globalInfo.bitfield,index,1);//update local bitfield
                             list_del(&d_piece->list);
+                            //add free
 
                             if(is_bitfield_complete(globalInfo.bitfield,piece_info_len)){
                                 //the file has been dowmloaded completely
