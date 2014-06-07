@@ -17,7 +17,6 @@ extern int first_request;
 typedef struct p2p_ctrl_block{
     ListHead list;
     int connfd;
-    // int state;//0:before handshake; 1:after handshake bebore bitfield; 3 after bitfield
     int am_choking;
     int am_interested;
     int peer_choking;
