@@ -68,6 +68,7 @@ void init_peer_id(char id[20]){
 void *daemon(void *arg){
     int sockfd = (int)arg;
 
+    printf("daemon is running\n");
     for(;;){
         struct sockaddr_in cliaddr;
         socklen_t cliaddr_len;
@@ -76,6 +77,11 @@ void *daemon(void *arg){
         pthread_testcancel();
 
         int connfd = accept(sockfd, (struct sockaddr *)&cliaddr, &cliaddr_len);
+        if (connfd < 0){
+            int tmp = errno;
+            printf("Error when accept socket:%s\n", strerror(tmp));
+            continue;
+        }
         printf("receive a connect from %s\n", inet_ntoa(cliaddr.sin_addr));
         pthread_t tid;
         p2p_thread_param *param = (p2p_thread_param *)malloc(sizeof(p2p_thread_param));
@@ -84,6 +90,8 @@ void *daemon(void *arg){
         strcpy(param->ip, inet_ntoa(cliaddr.sin_addr));
         if (pthread_create(&tid, NULL, process_p2p_conn, param) != 0){
             printf("Error when create thread accept request\n");
+        } else {
+            printf("Success create thread to accept request\n");
         }
     }
 
@@ -100,6 +108,8 @@ void *daemon(void *arg){
 int
 main ( int argc, char *argv[] )
 {
+    list_init(&P2PCB_head);
+    list_init(&downloading_piece_head);
     // <-- deal with argument -->
     globalArgs.port = 6881;
     globalArgs.isseed = 0;
@@ -159,7 +169,8 @@ main ( int argc, char *argv[] )
         return -1;
     }
     globalInfo.fp = createfile(globalInfo.g_torrentmeta->name, globalInfo.g_torrentmeta->length); 
-    globalInfo.bitfield = gen_bitfield(globalInfo.fp, globalInfo.g_torrentmeta->pieces, globalInfo.g_torrentmeta->piece_len, globalInfo.g_torrentmeta->num_pieces);   
+    globalInfo.bitfield = gen_bitfield(globalInfo.fp, globalInfo.g_torrentmeta->pieces, globalInfo.g_torrentmeta->piece_len, globalInfo.g_torrentmeta->num_pieces);
+
 #ifdef DEBUG
     int i;
     printf("bitfield:");
@@ -171,6 +182,16 @@ main ( int argc, char *argv[] )
     
     // <-- create socket listen to port -->
     listenfd = make_listen_port(globalInfo.g_peer_port);
+    if (listenfd == 0){
+        printf("Error when create socket for binding:%s\n", strerror(errno));
+        exit(-1);
+    }
+    pthread_t p_daemon;
+    if (pthread_create(&p_daemon, NULL, daemon, (void *)listenfd) != 0){
+        int tmp = errno;
+        printf("Error when create daemon thread: %s\n", strerror(tmp));
+        return -1;
+    }
 
     announce_url_t *announce_info = parse_announce_url(globalInfo.g_torrentmeta->announce);
     if (globalArgs.verbose == true){
@@ -228,6 +249,8 @@ main ( int argc, char *argv[] )
         for (i = 0; i < globalInfo.g_tracker_response->numpeers; i++){
             if (!exist_ip(globalInfo.g_tracker_response->peers[i].ip)){
                 int connfd = connect_to_host(globalInfo.g_tracker_response->peers[i].ip, globalInfo.g_tracker_response->peers[i].port);
+                if (connfd == -1)
+                    continue;
                 pthread_t tid;
                 p2p_thread_param *param = (p2p_thread_param *)malloc(sizeof(p2p_thread_param));
                 param->connfd = connfd;
@@ -235,8 +258,9 @@ main ( int argc, char *argv[] )
                 strcpy(param->ip, globalInfo.g_tracker_response->peers[i].ip);
                 if (pthread_create(&tid, NULL, process_p2p_conn, param) != 0){
                     printf("Error when create thread to connect peer\n");
+                } else {
+                    printf("Success create thread to connect peer %s\n", globalInfo.g_tracker_response->peers[i].ip);
                 }
-
             }
         }
 

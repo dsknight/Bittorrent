@@ -164,7 +164,8 @@ void set_block(int index, int begin, int length, char *block){
 // generate bitfield 
 char *gen_bitfield(FILE *fp, char *piece_hash, int piece_len, int piece_num){
     int cursize = filesize(fp);
-    char *bitfield = (char *)malloc(piece_num);
+    char *bitfield = (char *)malloc(piece_num / 8 + 1);
+    memset(bitfield, 0, piece_num / 8 + 1);
     char *hashbuf = (char *)malloc(piece_len);
     typedef struct {int hash[5];} *hashptr_t;
     hashptr_t ptr = (hashptr_t) piece_hash;

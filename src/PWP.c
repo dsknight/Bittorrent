@@ -22,12 +22,11 @@ static char set_bit[8] = {1,2,4,8,16,32,64,128};
 
 static int readn( int fd, void *bp, size_t len)
 {
+    printf("in readn: read %d char\n", len);
     int cnt;
     int rc;
-
     cnt = len;
-    while ( cnt > 0 )
-    {
+    while ( cnt > 0 ) {
         rc = recv( fd, bp, cnt, 0 );
         if ( rc < 0 )               /* read error? */
         {
@@ -246,22 +245,38 @@ void* process_p2p_conn(void *param){
 
     //if is_connecter,send handshake msg
     if(is_connecter){
+        printf("send a handshake\n");
         send_handshake_msg(connfd);
     }
 
     //readn handshake msg
     char pstrlen;
     if(readn(connfd,&pstrlen,1) > 0){
+        printf("handshake recieved %d\n", pstrlen);
         char pstr[pstrlen];
         char reserved[8];
-        char info_hash[20];
+        int info_hash[5];
         char peer_id[20];
         readn(connfd,pstr,pstrlen);
         readn(connfd,reserved,8);
         readn(connfd,info_hash,20);
+        int i;
+        for (i = 0; i < 5; i++){
+            info_hash[i] = ntohl(info_hash[i]);
+        }
         readn(connfd,peer_id,20);
-        printf("handshake recieved\n");
-        if(strncmp(info_hash, (char *)globalInfo.g_torrentmeta->info_hash,20) != 0){//wrong hash_info 
+#ifdef DEBUG
+        int j;
+        for (j = 0; j < 5; j++){
+            printf("%08X ", info_hash[j]);
+        }
+        printf("\nvs\n");
+        for (j = 0; j < 5; j++){
+            printf("%08X ", globalInfo.g_torrentmeta->info_hash[j]);
+        }
+        printf("\n");
+#endif
+        if(memcmp(info_hash, (char *)globalInfo.g_torrentmeta->info_hash,20) != 0){//wrong hash_info 
             printf("wrong handshake msg\n");
             drop_conn(currP2P);
             return NULL;
@@ -274,11 +289,12 @@ void* process_p2p_conn(void *param){
     }
 
     //send bitfield msg
-    if(is_bitfield_empty(globalInfo.bitfield,piece_info_len)){
+    if(!is_bitfield_empty(globalInfo.bitfield,piece_info_len)){
         char bitfield_msg[5+piece_info_len];
         *(int*)bitfield_msg = htonl(1+piece_info_len);
         bitfield_msg[4] = 5;
-        strncpy(bitfield_msg+5,globalInfo.bitfield,piece_info_len);
+        memcpy(bitfield_msg+5,globalInfo.bitfield,piece_info_len);
+        printf("bitfield to send:%02X %02X\n", bitfield_msg[5], globalInfo.bitfield[0]);
         send(connfd,bitfield_msg,5+piece_info_len,0);
     }
 
@@ -510,6 +526,7 @@ void* process_p2p_conn(void *param){
 }
 
 void send_have_msg(int connfd,int index){
+    printf("send have\n");
     char have_msg[9];
     *(int*)have_msg = htonl(5);
     have_msg[4] = 4;
@@ -518,6 +535,7 @@ void send_have_msg(int connfd,int index){
 }
 
 void send_request_msg(int connfd,int index,int begin,int length){
+    printf("send request\n");
     char request_msg[17];
     *(int*)request_msg = htonl(13);
     request_msg[4] = 6;
@@ -528,6 +546,7 @@ void send_request_msg(int connfd,int index,int begin,int length){
 }
 
 void send_interest_msg(int connfd){
+    printf("send interest\n");
     char interest_msg[5];
     *(int*)interest_msg = htonl(1);
     interest_msg[4] = 2;
@@ -535,6 +554,7 @@ void send_interest_msg(int connfd){
 }
 
 void send_choke_msg(int connfd){
+    printf("send chock\n");
     char choke_msg[5];
     *(int*)choke_msg = htonl(1);
     choke_msg[4] = 0;
@@ -542,6 +562,7 @@ void send_choke_msg(int connfd){
 }
 
 void send_not_interest_msg(int connfd){
+    printf("send not interest\n");
     char not_interest_msg[5];
     *(int*)not_interest_msg = htonl(1);
     not_interest_msg[4] = 2;
@@ -549,6 +570,7 @@ void send_not_interest_msg(int connfd){
 }
 
 void send_unchoke_msg(int connfd){
+    printf("send unchoke\n");
     char unchoke_msg[5];
     *(int*)unchoke_msg = htonl(1);
     unchoke_msg[4] = 0;
@@ -556,6 +578,7 @@ void send_unchoke_msg(int connfd){
 }   
 
 void send_piece_msg(int connfd, int index, int begin, int length){
+    printf("send piece\n");
     char block[length];
     get_block(index,begin,length,block);
     char piece_msg[13 + length];
@@ -574,13 +597,27 @@ void send_handshake_msg(int connfd){
     memset(handshake_msg,0,49+pstrlen);
     handshake_msg[0] = pstrlen;
     memcpy(handshake_msg+1,pstr,pstrlen);
-    memcpy(handshake_msg+9,globalInfo.g_torrentmeta->info_hash,20);
-    memcpy(handshake_msg+29,globalInfo.g_my_id,20);
+#ifdef DEBUG
+    int j;
+    printf("send info_hash:");
+    for (j = 0; j < 5; j++){
+        printf("%08X ", globalInfo.g_torrentmeta->info_hash[j]);
+    }
+    printf("\n");
+#endif
+    int tmphash[5];
+    int i;
+    for (i = 0; i < 5; i++){
+        tmphash[i] = htonl(globalInfo.g_torrentmeta->info_hash[i]);
+    }
+    memcpy(handshake_msg+9+pstrlen,tmphash,20);
+    memcpy(handshake_msg+29+pstrlen,globalInfo.g_my_id,20);
+#ifdef DEBUG
+    for (j = 0; j < 49 + pstrlen; j++)
+        printf("%02X ", handshake_msg[j]);
+    printf("\n");
+#endif
     send(connfd,handshake_msg,49+pstrlen,0);
 }
-
-
-
-
 
 

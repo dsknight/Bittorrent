@@ -53,7 +53,7 @@ char* make_tracker_request(struct globalInfo_t *info, int event, int* mlen)
     for(i=0; i<20; i++)
     {
         *cur++ = '%';
-        cur += sprintf(cur, "%02X", (unsigned char)info->g_my_id);
+        cur += sprintf(cur, "%02X", (unsigned char)info->g_my_id[i]);
     }
 
     // port

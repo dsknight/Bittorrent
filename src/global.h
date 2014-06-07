@@ -46,5 +46,5 @@ struct globalInfo_t{
 };
 
 extern struct globalInfo_t globalInfo;
-
+extern int listenfd;
 #endif
