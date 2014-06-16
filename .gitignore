@@ -4,6 +4,7 @@
 ~*
 *.swp
 data/*
+bin/*
 *.orig
 log
 tags

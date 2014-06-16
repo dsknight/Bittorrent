@@ -608,11 +608,12 @@ void send_unchoke_msg(int connfd){
 }   
 
 void send_piece_msg(int connfd, int index, int begin, int length){
-    printf("send piece\n");
+    printf("send piece: %d\n", length);
     char block[length];
     get_block(index,begin,length,block);
     char piece_msg[13 + length];
     *(int *)piece_msg = htonl(9 + length);
+    printf("int network:%d\n", *(int *)piece_msg);
     piece_msg[4] = 7;
     *(int *)(piece_msg+5) = htonl(index);
     *(int *)(piece_msg+9) = htonl(begin);
