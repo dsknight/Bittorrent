@@ -7,12 +7,17 @@
 #define MAX_REQUEST_NUM 5
 
 #include <stdbool.h>
+#include <pthread.h>
 #include "list.h"
 
 
 extern ListHead P2PCB_head;
 extern ListHead downloading_piece_head;
 extern int first_request;
+
+extern pthread_mutex_t P2P_mutex;
+extern pthread_mutex_t download_mutex;
+extern pthread_mutex_t firstReq_mutex;
 
 typedef struct p2p_ctrl_block{
     ListHead list;
