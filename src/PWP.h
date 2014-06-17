@@ -5,6 +5,7 @@
 #define PEER_PORT 6666
 #define SUB_PIECE_SIZE 16384
 #define MAX_REQUEST_NUM 5
+#define MAX_PEERS 1000000
 
 #include <stdbool.h>
 #include <pthread.h>

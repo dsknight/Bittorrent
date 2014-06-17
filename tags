@@ -306,7 +306,7 @@ ip	src/PWP.h	/^    char ip[20];$/;"	m	struct:p2p_thread_param	access:public
 ip	src/btdata.h	/^  char ip[16]; \/\/ Null终止$/;"	m	struct:_peerdata	access:public
 ip	src/btdata.h	/^  char ip[16]; \/\/ 自己的IP地址, 格式为XXX.XXX.XXX.XXX, 最后以'\\0'结尾$/;"	m	struct:_tracker_request	access:public
 is_bigendian	src/util.h	/^int is_bigendian();$/;"	p	signature:()
-is_bitfield_complete	src/PWP.c	/^static inline int is_bitfield_complete(char *bitfield,int len){$/;"	f	file:	signature:(char *bitfield,int len)
+is_bitfield_complete	src/PWP.c	/^static inline int is_bitfield_complete(char *bitfield){$/;"	f	file:	signature:(char *bitfield)
 is_bitfield_empty	src/PWP.c	/^static inline int is_bitfield_empty(char *bitfield,int len){$/;"	f	file:	signature:(char *bitfield,int len)
 is_connecter	src/PWP.h	/^    int is_connecter;\/\/1:this peer connect to another; 0:oppsite$/;"	m	struct:p2p_thread_param	access:public
 is_interested_bitfield	src/PWP.c	/^int is_interested_bitfield(char *bitfield1, char *bitfield2, int len){$/;"	f	signature:(char *bitfield1, char *bitfield2, int len)
@@ -336,6 +336,7 @@ make_listen_port	src/util.h	/^int make_listen_port(int port);$/;"	p	signature:(i
 make_tracker_request	src/make_tracker_request.c	/^char* make_tracker_request(struct globalInfo_t *info, int event, int* mlen)$/;"	f	signature:(struct globalInfo_t *info, int event, int* mlen)
 make_tracker_request	src/util.h	/^char* make_tracker_request(struct globalInfo_t *info, int event, int* mlen);$/;"	p	signature:(struct globalInfo_t *info, int event, int* mlen)
 make_tracker_request.c	src/make_tracker_request.c	1;"	F
+my_free	src/PWP.c	21;"	d	file:
 name	src/btdata.h	/^  char name[20]; $/;"	m	struct:_peer_t	access:public
 name	src/btdata.h	/^  char* name;     \/\/ 文件名$/;"	m	struct:_torrentmetadata	access:public
 next	src/list.h	/^	struct ListHead *prev, *next;$/;"	m	struct:ListHead	typeref:struct:ListHead::	access:public
