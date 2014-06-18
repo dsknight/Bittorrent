@@ -1,7 +1,17 @@
-
+#include <assert.h>
 #include "bencode.h"
 #include "util.h"
 #include "sha1.h"
+
+char *mystrstr(const char *haystack, const char *needle, int len){
+    int needle_len = strlen(needle);
+    int i;
+    for (i = 0; i <= len - needle_len; i++){
+        if(memcmp(haystack + i, needle, needle_len) == 0)
+            return (char *)haystack + i;
+    }
+    return NULL;
+}
 
 // 注意: 这个函数只能处理单文件模式torrent
 torrentmetadata_t* parsetorrentfile(char* filename)
@@ -12,6 +22,8 @@ torrentmetadata_t* parsetorrentfile(char* filename)
     int flen;
     char* data;
     torrentmetadata_t* ret;
+    char endstr[20];
+    memset(endstr, 0, 20);
 
     // 打开文件, 获取数据并解码字符串
     f = fopen(filename,"r");
@@ -34,24 +46,90 @@ torrentmetadata_t* parsetorrentfile(char* filename)
         perror("Could not allocate torrent meta data");
         exit(-13);
     }
+    // 检查键并提取对应的信息
+    int filled=0;
+    for(i=0; ben_res->val.d[i].val != NULL; i++)
+    {
+        int j;
+        if(!strcmp(ben_res->val.d[i].key,"announce"))
+        {
+            ret->announce = (char*)malloc(be_str_len(ben_res->val.d[i].val) + 1);
+            memset(ret->announce, 0, be_str_len(ben_res->val.d[i].val) + 1);
+            memcpy(ret->announce,ben_res->val.d[i].val->val.s,be_str_len(ben_res->val.d[i].val));
+            filled++;
+        }
+        // info是一个字典, 它还有一些其他我们关心的键
+        if(!strcmp(ben_res->val.d[i].key,"info"))
+        {
+            if (ben_res->val.d[i + 1].val != NULL)
+                strcpy(endstr, ben_res->val.d[i + 1].key);
+            be_dict* idict;
+            if(ben_res->val.d[i].val->type != BE_DICT)
+            {
+                perror("Expected dict, got something else");
+                exit(-3);
+            }
+            idict = ben_res->val.d[i].val->val.d;
+            // 检查这个字典的键
+            for(j=0; idict[j].key != NULL; j++)
+            { 
+                if(!strcmp(idict[j].key,"length"))
+                {
+                    ret->length = idict[j].val->val.i;
+                    filled++;
+                }
+                if(!strcmp(idict[j].key,"name"))
+                {
+                    ret->name = (char*)malloc(be_str_len(idict[j].val) + 1);
+                    memset(ret->name, 0, be_str_len(idict[j].val) + 1);
+                    memcpy(ret->name,idict[j].val->val.s,be_str_len(idict[j].val));
+                    filled++;
+                }
+                if(!strcmp(idict[j].key,"piece length"))
+                {
+                    ret->piece_len = idict[j].val->val.i;
+                    filled++;
+                }
+                if(!strcmp(idict[j].key,"pieces"))
+                {
+                    int num_pieces = ret->length/ret->piece_len;
+                    if(ret->length % ret->piece_len != 0)
+                        num_pieces++;
+                    ret->pieces = (char*)malloc(num_pieces*20);
+                    memcpy(ret->pieces,idict[j].val->val.s,num_pieces*20);
+                    ret->num_pieces = num_pieces;
+                    filled++;
+                }
+
+            } // for循环结束
+        } // info键处理结束
+    }
+
 
     // 计算这个torrent的info_hash值
     // 注意: SHA1函数返回的哈希值存储在一个整数数组中, 对于小端字节序主机来说,
     // 在与tracker或其他peer返回的哈希值进行比较时, 需要对本地存储的哈希值
     // 进行字节序转换. 当你生成发送给tracker的请求时, 也需要对字节序进行转换.
     char* info_loc, *info_end;
-    info_loc = strstr(data,"infod");  // 查找info键, 它的值是一个字典
+    info_loc = mystrstr(data, "infod", flen);  // 查找info键, 它的值是一个字典
     info_loc += 4; // 将指针指向值开始的地方
-    info_end = data+flen-1;
-    // 去掉结尾的e
-    if(*info_end == 'e')
-    {
-        --info_end;
+    printf("%s\n", data);
+    if (strcmp(endstr, "") != 0){
+        info_end = mystrstr(data, endstr, flen);
+        info_end--;
+        while(*info_end != 'e')
+            info_end--;
+        assert(info_end > info_loc);
+    } else {
+        info_end = data+flen-1;
+        // 去掉结尾的e
+        if(*info_end == 'e')
+        {
+            --info_end;
+        }
     }
 
-    char* p;
-    int len = 0;
-    for(p=info_loc; p<=info_end; p++) len++;
+    int len = info_end - info_loc + 1;
 
     // 计算上面字符串的SHA1哈希值以获取info_hash
     SHA1Context sha;
@@ -69,63 +147,6 @@ torrentmetadata_t* parsetorrentfile(char* filename)
         printf("%08X ",ret->info_hash[i]);
     }
     printf("\n");
-
-    // 检查键并提取对应的信息
-    int filled=0;
-    for(i=0; ben_res->val.d[i].val != NULL; i++)
-    {
-        int j;
-        if(!strncmp(ben_res->val.d[i].key,"announce",strlen("announce")))
-        {
-            ret->announce = (char*)malloc(be_str_len(ben_res->val.d[i].val) + 1);
-            memset(ret->announce, 0, be_str_len(ben_res->val.d[i].val) + 1);
-            memcpy(ret->announce,ben_res->val.d[i].val->val.s,be_str_len(ben_res->val.d[i].val));
-            filled++;
-        }
-        // info是一个字典, 它还有一些其他我们关心的键
-        if(!strncmp(ben_res->val.d[i].key,"info",strlen("info")))
-        {
-            be_dict* idict;
-            if(ben_res->val.d[i].val->type != BE_DICT)
-            {
-                perror("Expected dict, got something else");
-                exit(-3);
-            }
-            idict = ben_res->val.d[i].val->val.d;
-            // 检查这个字典的键
-            for(j=0; idict[j].key != NULL; j++)
-            { 
-                if(!strncmp(idict[j].key,"length",strlen("length")))
-                {
-                    ret->length = idict[j].val->val.i;
-                    filled++;
-                }
-                if(!strncmp(idict[j].key,"name",strlen("name")))
-                {
-                    ret->name = (char*)malloc(be_str_len(idict[j].val) + 1);
-                    memset(ret->name, 0, be_str_len(idict[j].val) + 1);
-                    memcpy(ret->name,idict[j].val->val.s,be_str_len(idict[j].val));
-                    filled++;
-                }
-                if(!strncmp(idict[j].key,"piece length",strlen("piece length")))
-                {
-                    ret->piece_len = idict[j].val->val.i;
-                    filled++;
-                }
-                if(!strncmp(idict[j].key,"pieces",strlen("pieces")))
-                {
-                    int num_pieces = ret->length/ret->piece_len;
-                    if(ret->length % ret->piece_len != 0)
-                        num_pieces++;
-                    ret->pieces = (char*)malloc(num_pieces*20);
-                    memcpy(ret->pieces,idict[j].val->val.s,num_pieces*20);
-                    ret->num_pieces = num_pieces;
-                    filled++;
-                }
-
-            } // for循环结束
-        } // info键处理结束
-    }
 
     // 确认已填充了必要的字段
 

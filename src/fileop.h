@@ -20,6 +20,13 @@
 
 #include <stdbool.h>
 
+struct fileinfo_t {
+    FILE *fp;
+    int begin_index;
+    int size;
+};
+
+
 int filesize(FILE *fp);
 bool exists(char *filepath);
 FILE *createfile(char *filepath, int size);
