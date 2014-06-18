@@ -26,13 +26,14 @@
 ListHead P2PCB_head;
 ListHead downloading_piece_head;
 int first_request = 1;
+int *piece_counter;
 
 pthread_mutex_t P2P_mutex;
 pthread_mutex_t download_mutex;
 pthread_mutex_t firstReq_mutex;
+pthread_mutex_t pieceCounter_mutex;
 
 static char set_bit[8] = {1,2,4,8,16,32,64,128};
-static int *piece_counter;
 
 static int readn( int fd, void *bp, size_t len)
 {
@@ -57,19 +58,19 @@ static int readn( int fd, void *bp, size_t len)
 }
 
 // get/set the bit value at the index
-static inline int get_bit_at_index(char *info, int index){
-    unsigned char ch = info[index/8];
+static inline int get_bit_at_index(char *bitfield, int index){
+    unsigned char ch = bitfield[index/8];
     int offset = 7 - index%8;
     return (ch >> offset) & 1;
 }
 
-static inline void set_bit_at_index(char *info, int index, int bit){
+static inline void set_bit_at_index(char *bitfield, int index, int bit){
     assert(bit == 0 || bit == 1);
     int offset = 7 - index%8;
     if(bit)
-        info[index/8] = info[index/8] | set_bit[offset];
+        bitfield[index/8] = bitfield[index/8] | set_bit[offset];
     else
-        info[index/8] = info[index/8] & (~set_bit[offset]);
+        bitfield[index/8] = bitfield[index/9] & (~set_bit[offset]);
 }
 
 //when error ,drop connection
@@ -77,7 +78,7 @@ static inline void drop_conn(P2PCB *currP2P){
     pthread_mutex_lock(&P2P_mutex);
     list_del(&currP2P->list);
     pthread_mutex_unlock(&P2P_mutex);
-    my_free(currP2P->oppsite_piece_info);
+    my_free(currP2P->oppsite_bitfield);
     close(currP2P->connfd);
     my_free(currP2P);
 }
@@ -136,7 +137,7 @@ int select_next_piece_(){//by order
         printf("*** %d ***\n",(int)&tmpP2P->list);
         if(tmpP2P->peer_interested == 1 && tmpP2P->am_choking == 0){
             char *bitfield1 = globalInfo.bitfield;
-            char *bitfield2 = tmpP2P->oppsite_piece_info;
+            char *bitfield2 = tmpP2P->oppsite_bitfield;
             for(int i = 0; i < piece_num; i++){
                 if(get_bit_at_index(bitfield1,i) == 0 && get_bit_at_index(bitfield2,i) == 1){
                     printf("next piece is: %d \n",i);
@@ -298,17 +299,6 @@ void* process_p2p_conn(void *param){
     int connfd = currParam->connfd;
     int is_connecter = currParam->is_connecter;
 
-    //set piece_counter for "least first"
-    piece_counter = (int *)malloc(sizeof(int)*globalInfo.g_torrentmeta->num_pieces);
-    memset(piece_counter,0,sizeof(int)*globalInfo.g_torrentmeta->num_pieces);
-
-    //init mutex
-    pthread_mutexattr_t mutex_attr;
-    pthread_mutexattr_settype(&mutex_attr,PTHREAD_MUTEX_RECURSIVE_NP);
-    pthread_mutex_init(&P2P_mutex,&mutex_attr);
-    pthread_mutex_init(&download_mutex,&mutex_attr);
-    pthread_mutex_init(&firstReq_mutex,&mutex_attr);
-
     //init P2PCB
     P2PCB *currP2P = (P2PCB *)malloc(sizeof(P2PCB));
     memset(currP2P,0,sizeof(P2PCB));
@@ -317,9 +307,9 @@ void* process_p2p_conn(void *param){
     init_p2p_block(currP2P); 
     my_free(currParam);
     
-    int piece_info_len = globalInfo.g_torrentmeta->num_pieces/8 + (globalInfo.g_torrentmeta->num_pieces%8 != 0);
-    currP2P->oppsite_piece_info = (char *)malloc(piece_info_len);
-    memset(currP2P->oppsite_piece_info,0,piece_info_len);
+    int bitfield_len = globalInfo.g_torrentmeta->num_pieces/8 + (globalInfo.g_torrentmeta->num_pieces%8 != 0);
+    currP2P->oppsite_bitfield = (char *)malloc(bitfield_len);
+    memset(currP2P->oppsite_bitfield,0,bitfield_len);
     pthread_mutex_lock(&P2P_mutex);
     list_add_before(&P2PCB_head,&currP2P->list);
     pthread_mutex_unlock(&P2P_mutex);
@@ -372,13 +362,13 @@ void* process_p2p_conn(void *param){
     }
 
     //send bitfield msg
-    if(!is_bitfield_empty(globalInfo.bitfield,piece_info_len)){
-        char bitfield_msg[5+piece_info_len];
-        *(int*)bitfield_msg = htonl(1+piece_info_len);
+    if(!is_bitfield_empty(globalInfo.bitfield,bitfield_len)){
+        char bitfield_msg[5+bitfield_len];
+        *(int*)bitfield_msg = htonl(1+bitfield_len);
         bitfield_msg[4] = 5;
-        memcpy(bitfield_msg+5,globalInfo.bitfield,piece_info_len);
+        memcpy(bitfield_msg+5,globalInfo.bitfield,bitfield_len);
         printf("bitfield to send:%02X %02X\n", bitfield_msg[5], globalInfo.bitfield[0]);
-        send(connfd,bitfield_msg,5+piece_info_len,0);
+        send(connfd,bitfield_msg,5+bitfield_len,0);
     }
 
     //process msgs
@@ -419,18 +409,20 @@ void* process_p2p_conn(void *param){
                          send_unchoke_msg(connfd);
                          break;
                      }
-            case 3 : {
+            case 3 : {//not interested
                          pthread_mutex_lock(&P2P_mutex);
                          currP2P->am_interested = 0;
                          pthread_mutex_unlock(&P2P_mutex);
                          break;
-                     }//not interested
+                     }
             case 4 : {//have  
                          int index;
                          readn(connfd,&index,4);
                          index = ntohl(index);
-                         set_bit_at_index(currP2P->oppsite_piece_info,index,1);
+                         set_bit_at_index(currP2P->oppsite_bitfield,index,1);
+                         pthread_mutex_lock(&pieceCounter_mutex);
                          piece_counter[index] ++;//update piece_counter
+                         pthread_mutex_unlock(&pieceCounter_mutex);
                          if(get_bit_at_index(globalInfo.bitfield,index) == 0){//send interest
                              send_interest_msg(connfd);
                              pthread_mutex_lock(&P2P_mutex);
@@ -482,7 +474,7 @@ void* process_p2p_conn(void *param){
             case 5 : {//bitfield
                          char bitfield[len-1];
                          readn(connfd,bitfield,len-1);
-                         if(len - 1 != piece_info_len){
+                         if(len - 1 != bitfield_len){
                             //wrong length of bitfield
                             printf("wrong length of bitfield\n");
                             drop_conn(currP2P);
@@ -501,20 +493,22 @@ void* process_p2p_conn(void *param){
                          }
                          //set oppsite piece info
                          pthread_mutex_lock(&P2P_mutex);
-                         memcpy(currP2P->oppsite_piece_info,bitfield,len-1);
+                         memcpy(currP2P->oppsite_bitfield,bitfield,len-1);
                          pthread_mutex_unlock(&P2P_mutex);
 
                          //update piece_counter
+                         pthread_mutex_lock(&pieceCounter_mutex);
                          for(int i = 0; i < globalInfo.g_torrentmeta->num_pieces; i++){
                              if(get_bit_at_index(bitfield,i) == 1)
                                  piece_counter[i] ++;
                          }
+                         pthread_mutex_unlock(&pieceCounter_mutex);
                          
                          //to see whether interedted about oppsite peer
                          pthread_mutex_lock(&P2P_mutex);
                          char *bitfield1 = globalInfo.bitfield;
-                         char *bitfield2 = currP2P->oppsite_piece_info;
-                         if(is_interested_bitfield(bitfield1,bitfield2,piece_info_len)){
+                         char *bitfield2 = currP2P->oppsite_bitfield;
+                         if(is_interested_bitfield(bitfield1,bitfield2,bitfield_len)){
                              send_interest_msg(connfd);
                              currP2P->peer_interested = 1;
                              currP2P->am_choking = 0;
@@ -654,8 +648,8 @@ void* process_p2p_conn(void *param){
                             list_foreach(ptr,&P2PCB_head){
                                 P2PCB *tmpP2P = list_entry(ptr,P2PCB,list);
                                 char *bitfield1 = globalInfo.bitfield;
-                                char *bitfield2 = tmpP2P->oppsite_piece_info;
-                                if(!is_interested_bitfield(bitfield1,bitfield2,piece_info_len) && 
+                                char *bitfield2 = tmpP2P->oppsite_bitfield;
+                                if(!is_interested_bitfield(bitfield1,bitfield2,bitfield_len) && 
                                         tmpP2P->peer_interested == 1){//change to be not interested
                                     send_not_interest_msg(tmpP2P->connfd);
                                     tmpP2P->peer_interested = 0;
@@ -705,12 +699,22 @@ void* process_p2p_conn(void *param){
         }
     }
 
+    //update piece_counter 
+    pthread_mutex_lock(&pieceCounter_mutex);
+    for(int i = 0; i < globalInfo.g_torrentmeta->num_pieces; i++){
+        if(get_bit_at_index(currP2P->oppsite_bitfield,i) == 1)
+            piece_counter[i] --;
+    }
+    pthread_mutex_unlock(&pieceCounter_mutex);
+
     printf("exit the p2p msg process\n");
     pthread_mutex_lock(&P2P_mutex);
     list_del(&currP2P->list);
     pthread_mutex_unlock(&P2P_mutex);
-    my_free(currP2P->oppsite_piece_info);
+    my_free(currP2P->oppsite_bitfield);
     my_free(currP2P);
+
+
     return NULL;
 }
 

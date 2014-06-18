@@ -40,7 +40,6 @@ const char *optstring = "p:i:vh?";
 
 struct globalInfo_t globalInfo;
 
-
 int listenfd;
 
 void useage(){
@@ -105,8 +104,18 @@ void *daemon(void *arg){
 int
 main ( int argc, char *argv[] )
 {
+    //init ListHead
     list_init(&P2PCB_head);
     list_init(&downloading_piece_head);
+
+    //init mutex
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutexattr_settype(&mutex_attr,PTHREAD_MUTEX_RECURSIVE_NP);
+    pthread_mutex_init(&P2P_mutex,&mutex_attr);
+    pthread_mutex_init(&download_mutex,&mutex_attr);
+    pthread_mutex_init(&firstReq_mutex,&mutex_attr);
+    pthread_mutex_init(&pieceCounter_mutex,&mutex_attr);
+
     // <-- deal with argument -->
     globalArgs.port = 6881;
     globalArgs.isseed = 0;
@@ -175,6 +184,11 @@ main ( int argc, char *argv[] )
         printf("%X ", globalInfo.bitfield[i]);
     printf("\n");
 #endif 
+
+    //set piece_counter for "least first"
+    piece_counter = (int *)malloc(sizeof(int)*globalInfo.g_torrentmeta->num_pieces);
+    memset(piece_counter,0,sizeof(int)*globalInfo.g_torrentmeta->num_pieces);
+
     // <-- end -->
     
     // <-- create socket listen to port -->
