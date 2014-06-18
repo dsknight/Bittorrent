@@ -5,14 +5,22 @@
 #define PEER_PORT 6666
 #define SUB_PIECE_SIZE 16384
 #define MAX_REQUEST_NUM 5
+#define MAX_PEERS 1000000
 
 #include <stdbool.h>
+#include <pthread.h>
 #include "list.h"
 
 
 extern ListHead P2PCB_head;
 extern ListHead downloading_piece_head;
 extern int first_request;
+extern int *piece_counter;
+
+extern pthread_mutex_t P2P_mutex;
+extern pthread_mutex_t download_mutex;
+extern pthread_mutex_t firstReq_mutex;
+extern pthread_mutex_t pieceCounter_mutex;
 
 typedef struct p2p_ctrl_block{
     ListHead list;
@@ -23,7 +31,7 @@ typedef struct p2p_ctrl_block{
     int peer_interested;
     char oppsite_peer_id[20];
     char oppsite_peer_ip[20];
-    char *oppsite_piece_info;
+    char *oppsite_bitfield;
 }P2PCB;
 
 
@@ -31,7 +39,7 @@ typedef struct torrent_info{
     char info_hash[20];
     char peer_id[20];
     int piece_num;
-    char *piece_info;
+    char *bitfield;
 }torrent_info;
 
 typedef struct p2p_thread_param{
