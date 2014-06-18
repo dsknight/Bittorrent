@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
-
+#include <errno.h>
 #include "util.h"
 
 int connect_to_host(char* ip, int port)
@@ -25,7 +25,7 @@ int connect_to_host(char* ip, int port)
 
   if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
   {
-    perror("Error connecting to socket");
+    printf("Error connecting to socket %s:%d, %s\n", ip, port, strerror(errno));
     return(-1);
   }
 

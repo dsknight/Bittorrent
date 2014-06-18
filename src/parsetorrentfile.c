@@ -70,19 +70,31 @@ torrentmetadata_t* parsetorrentfile(char* filename)
                 exit(-3);
             }
             idict = ben_res->val.d[i].val->val.d;
+            bool multifile = false;
+            for (j = 0; idict[j].key != NULL; j++){
+                if (!strcmp(idict[j].key, "files")){
+                    multifile = true;
+                    filled++;
+                }
+            }
             // 检查这个字典的键
             for(j=0; idict[j].key != NULL; j++)
             { 
                 if(!strcmp(idict[j].key,"length"))
                 {
                     ret->length = idict[j].val->val.i;
+                    ret->flist[0].size = ret->length;
                     filled++;
                 }
                 if(!strcmp(idict[j].key,"name"))
                 {
-                    ret->name = (char*)malloc(be_str_len(idict[j].val) + 1);
                     memset(ret->name, 0, be_str_len(idict[j].val) + 1);
                     memcpy(ret->name,idict[j].val->val.s,be_str_len(idict[j].val));
+                    if (multifile == false){
+                        ret->filenum = 1;
+                        ret->flist[0].begin_index = 0;
+                        strcpy(ret->flist[0].filename, ret->name);
+                    }
                     filled++;
                 }
                 if(!strcmp(idict[j].key,"piece length"))
@@ -100,8 +112,34 @@ torrentmetadata_t* parsetorrentfile(char* filename)
                     ret->num_pieces = num_pieces;
                     filled++;
                 }
-
             } // for循环结束
+            for (j = 0; idict[j].key != NULL; j++){
+                if (!strcmp(idict[j].key, "files")){
+                    assert(idict[j].val->type == BE_LIST);
+                    int k;
+                    for(k = 0; idict[j].val->val.l[k] != NULL; k++){
+                        struct be_dict *filedict = idict[j].val->val.l[k]->val.d;
+                        ret->filenum = k + 1;
+                        int x;
+                        for(x = 0; filedict[x].key != NULL; x++){
+                            if (!strcmp(filedict[x].key, "length")){
+                                ret->flist[k].size = filedict[x].val->val.i;
+                                ret->flist[k].begin_index = (k == 0)?0:ret->flist[k - 1].begin_index + ret->flist[k - 1].size;
+                                ret->length = ret->flist[k].size + ret->flist[k].begin_index;
+                            }
+                            if (!strcmp(filedict[x].key, "path")){
+                                strcpy(ret->flist[k].filename, ret->name);
+                                struct be_node **pathlist = filedict[x].val->val.l;
+                                while(*pathlist != NULL){
+                                    strcat(ret->flist[k].filename, "/");
+                                    strcat(ret->flist[k].filename, (*pathlist)->val.s);
+                                    pathlist++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         } // info键处理结束
     }
 

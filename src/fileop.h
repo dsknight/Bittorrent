@@ -19,9 +19,11 @@
 #define __FILE_OP_H_
 
 #include <stdbool.h>
+#include <stdio.h>
 
 struct fileinfo_t {
     FILE *fp;
+    char filename[80];// with path
     int begin_index;
     int size;
 };
@@ -36,6 +38,6 @@ int get_sub_piece(FILE *fp, char *buf, int begin, int len, int piece_num, int pi
 int store_sub_piece(FILE *fp, char *buf, int begin, int len, int piece_num, int piece_size);
 void get_block(int index, int begin, int length, char *block);
 void set_block(int index, int begin, int length, char *block);
-char *gen_bitfield(FILE *fp, char *piece_hash, int piece_len, int piece_num);
+char *gen_bitfield(char *piece_hash, int piece_len, int piece_num);
 
 #endif

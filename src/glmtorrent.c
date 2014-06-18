@@ -104,6 +104,7 @@ void *daemon(void *arg){
 int
 main ( int argc, char *argv[] )
 {
+    int i;
     //init ListHead
     list_init(&P2PCB_head);
     list_init(&downloading_piece_head);
@@ -174,11 +175,12 @@ main ( int argc, char *argv[] )
         printf("Error when parsing torrent file\n");
         return -1;
     }
-    globalInfo.fp = createfile(globalInfo.g_torrentmeta->name, globalInfo.g_torrentmeta->length); 
-    globalInfo.bitfield = gen_bitfield(globalInfo.fp, globalInfo.g_torrentmeta->pieces, globalInfo.g_torrentmeta->piece_len, globalInfo.g_torrentmeta->num_pieces);
+    for (i = 0; i < globalInfo.g_torrentmeta->filenum; i++){
+        globalInfo.g_torrentmeta->flist[i].fp = createfile(globalInfo.g_torrentmeta->flist[i].filename, globalInfo.g_torrentmeta->flist[i].size);
+    }
+    globalInfo.bitfield = gen_bitfield(globalInfo.g_torrentmeta->pieces, globalInfo.g_torrentmeta->piece_len, globalInfo.g_torrentmeta->num_pieces);
 
 #ifdef DEBUG
-    int i;
     printf("bitfield:");
     for (i = 0; i <= globalInfo.g_torrentmeta->num_pieces / 8; i++)
         printf("%X ", globalInfo.bitfield[i]);
@@ -250,7 +252,6 @@ main ( int argc, char *argv[] )
         free(tr->data);
         free(tr);
 
-        int i;
 #ifdef DEBUG
         printf("Num Peers: %d\n", globalInfo.g_tracker_response->numpeers);
         for (i = 0; i < globalInfo.g_tracker_response->numpeers; i++){
