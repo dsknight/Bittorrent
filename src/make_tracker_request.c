@@ -81,7 +81,7 @@ char* make_tracker_request(struct globalInfo_t *info, int event, int* mlen)
     // left
     strcpy(cur,"&left=");
     cur += strlen("&left=");
-    cur += sprintf(cur, "%d", info->g_left);
+    cur += sprintf(cur, "%d", info->g_torrentmeta->length);
 
     switch(event) {
         case BT_STARTED:

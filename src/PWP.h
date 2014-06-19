@@ -46,6 +46,7 @@ typedef struct p2p_thread_param{
     int connfd;
     int is_connecter;//1:this peer connect to another; 0:oppsite
     char ip[20];
+    int port;
 }p2p_thread_param;
 
 typedef struct downloading_piece{

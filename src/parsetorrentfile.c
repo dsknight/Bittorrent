@@ -104,12 +104,8 @@ torrentmetadata_t* parsetorrentfile(char* filename)
                 }
                 if(!strcmp(idict[j].key,"pieces"))
                 {
-                    int num_pieces = ret->length/ret->piece_len;
-                    if(ret->length % ret->piece_len != 0)
-                        num_pieces++;
-                    ret->pieces = (char*)malloc(num_pieces*20);
-                    memcpy(ret->pieces,idict[j].val->val.s,num_pieces*20);
-                    ret->num_pieces = num_pieces;
+                    ret->pieces = (char*)malloc(be_str_len(idict[j].val) + 1);
+                    memcpy(ret->pieces,idict[j].val->val.s, be_str_len(idict[j].val));
                     filled++;
                 }
             } // for循环结束
@@ -142,6 +138,10 @@ torrentmetadata_t* parsetorrentfile(char* filename)
             }
         } // info键处理结束
     }
+    int num_pieces = ret->length/ret->piece_len;
+    if(ret->length % ret->piece_len != 0)
+        num_pieces++;
+    ret->num_pieces = num_pieces;
 
 
     // 计算这个torrent的info_hash值

@@ -251,6 +251,7 @@ char *gen_bitfield(char *piece_hash, int piece_len, int piece_num){
 #endif
         if (memcmp(sha.Message_Digest, ptr->hash, 20) == 0){
             printf("write 1\n");
+            globalInfo.g_downloaded += globalInfo.g_torrentmeta->piece_len;
             set_bit_at_index(bitfield, i, 1);
         } else {
             printf("write 0\n");

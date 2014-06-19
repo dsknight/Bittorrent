@@ -42,6 +42,10 @@ struct globalInfo_t globalInfo;
 
 int listenfd;
 
+void sigpipe_handle(int signalnum){
+    // ignore
+}
+
 void useage(){
     printf("Useage:\n\t./simpletorrent [-i isseed] [-p port] [-v] [-h] torrentpath\n\n");
     printf("[-i isseed]\n\tisseed is optional, 1 indicates this is a seed and won't contact other clients.");
@@ -61,7 +65,22 @@ void init_peer_id(char id[20]){
     }
 }
 
-void *daemon(void *arg){
+void *show_speed(void *arg){
+    int old_download = globalInfo.g_downloaded;
+    char bar[] = "=================================================>";
+    for(;;){
+        sleep(2);
+        int current_download = globalInfo.g_downloaded;
+        double speed = (double)(current_download - old_download)/3.0;
+        double proportion = (double)current_download/(double)globalInfo.g_torrentmeta->length;
+        int index = (proportion >= 1)?0:(49 - (int)(proportion * 50));
+        printf("speed:%5.1fKB/s [%-50s]\r", speed / 1024, &bar[index]);
+        old_download = current_download;
+        fflush(stdout);
+    }
+}
+
+void *daemon_listen(void *arg){
     int sockfd = (int)arg;
 
     printf("daemon is running\n");
@@ -200,9 +219,15 @@ main ( int argc, char *argv[] )
         exit(-1);
     }
     pthread_t p_daemon;
-    if (pthread_create(&p_daemon, NULL, daemon, (void *)listenfd) != 0){
+    if (pthread_create(&p_daemon, NULL, daemon_listen, (void *)listenfd) != 0){
         int tmp = errno;
         printf("Error when create daemon thread: %s\n", strerror(tmp));
+        return -1;
+    }
+    pthread_t p_speed;
+    if (pthread_create(&p_speed, NULL, show_speed, NULL) != 0){
+        int tmp = errno;
+        printf("Error when create show_speed thread: %s\n", strerror(tmp));
         return -1;
     }
 
@@ -222,7 +247,8 @@ main ( int argc, char *argv[] )
 
     // set the action after recv ctrl-c
     signal(SIGINT, client_shutdown);
-
+    signal(SIGPIPE, SIG_IGN);
+    
     int event_value = BT_STARTED;
     while(true){
         int sockfd = connect_to_host(globalInfo.g_tracker_ip, globalInfo.g_tracker_port);
@@ -260,13 +286,10 @@ main ( int argc, char *argv[] )
 #endif
         for (i = 0; i < globalInfo.g_tracker_response->numpeers; i++){
             if (!exist_ip(globalInfo.g_tracker_response->peers[i].ip)){
-                int connfd = connect_to_host(globalInfo.g_tracker_response->peers[i].ip, globalInfo.g_tracker_response->peers[i].port);
-                if (connfd == -1)
-                    continue;
                 pthread_t tid;
                 p2p_thread_param *param = (p2p_thread_param *)malloc(sizeof(p2p_thread_param));
-                param->connfd = connfd;
                 param->is_connecter = 1;
+                param->port = globalInfo.g_tracker_response->peers[i].port;
                 strcpy(param->ip, globalInfo.g_tracker_response->peers[i].ip);
                 if (pthread_create(&tid, NULL, process_p2p_conn, param) != 0){
                     printf("Error when create thread to connect peer\n");
