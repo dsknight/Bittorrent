@@ -154,16 +154,70 @@ int store_sub_piece(FILE *fp, char *buf, int begin, int len, int piece_num, int 
     return fwrite(buf, sizeof(char), len, fp);
 }
 
+int list_set_piece(struct fileinfo_t *fileinfo, int filenum, char *buf, int len, int begin){
+    if (fileinfo[filenum - 1].begin_index + fileinfo[filenum - 1].size < begin + len){
+        printf("write beyond file list\n");
+        return -1;
+    }
+    int i;
+    for (i = 0; i < filenum; i++){
+        if (fileinfo[i].begin_index <= begin && fileinfo[i].begin_index + fileinfo[i].size > begin){
+            // write to a file
+            if (fileinfo[i].begin_index + fileinfo[i].size - begin - len >= 0){
+                fseek(fileinfo[i].fp, begin - fileinfo[i].begin_index, SEEK_SET);
+                return fwrite(buf, sizeof(char), len, fileinfo[i].fp);
+            } else {
+            // write to multi file
+                int writesize = fileinfo[i].begin_index + fileinfo[i].size - begin;
+                fseek(fileinfo[i].fp, begin - fileinfo[i].begin_index, SEEK_SET);
+                int partsize = fwrite(buf, sizeof(char), writesize, fileinfo[i].fp);
+                return partsize + list_set_piece(fileinfo, filenum, buf + writesize, len - writesize, begin + writesize);
+            }
+        }
+    }
+    assert(false && "if argu pass the first if stmt, it shouldn't access here");
+    return -1;
+}
+
+int list_get_piece(struct fileinfo_t *fileinfo, int filenum, char *buf, int len, int begin){
+    if (fileinfo[filenum - 1].begin_index + fileinfo[filenum - 1].size < begin + len){
+        printf("write beyond file list\n");
+        return -1;
+    }
+    int i;
+    for (i = 0; i < filenum; i++){
+        if (fileinfo[i].begin_index <= begin && fileinfo[i].begin_index + fileinfo[i].size > begin){
+            // write to a file
+            if (fileinfo[i].begin_index + fileinfo[i].size - begin - len >= 0){
+                fseek(fileinfo[i].fp, begin - fileinfo[i].begin_index, SEEK_SET);
+                return fread(buf, sizeof(char), len, fileinfo[i].fp);
+            } else {
+            // write to multi file
+                int writesize = fileinfo[i].begin_index + fileinfo[i].size - begin;
+                fseek(fileinfo[i].fp, begin - fileinfo[i].begin_index, SEEK_SET);
+                int partsize = fread(buf, sizeof(char), writesize, fileinfo[i].fp);
+                return partsize + list_get_piece(fileinfo, filenum, buf + writesize, len - writesize, begin + writesize);
+            }
+        }
+    }
+    assert(false && "if argu pass the first if stmt, it shouldn't access here");
+    return -1;
+}
+
+
+
 void get_block(int index, int begin, int length, char *block){
-    get_sub_piece(globalInfo.fp, block, begin, length, index, globalInfo.g_torrentmeta->piece_len);
+    list_get_piece(globalInfo.g_torrentmeta->flist, globalInfo.g_torrentmeta->filenum, block, length, index * globalInfo.g_torrentmeta->piece_len + begin);
 }
 void set_block(int index, int begin, int length, char *block){
-    store_sub_piece(globalInfo.fp, block, begin, length, index, globalInfo.g_torrentmeta->piece_len);
+    list_set_piece(globalInfo.g_torrentmeta->flist, globalInfo.g_torrentmeta->filenum, block, length, index * globalInfo.g_torrentmeta->piece_len + begin);
 }
 
 // generate bitfield 
-char *gen_bitfield(FILE *fp, char *piece_hash, int piece_len, int piece_num){
-    int cursize = filesize(fp);
+char *gen_bitfield(char *piece_hash, int piece_len, int piece_num){
+    struct fileinfo_t *filelist = globalInfo.g_torrentmeta->flist;
+    int filenum = globalInfo.g_torrentmeta->filenum;
+    int cursize = filelist[filenum - 1].begin_index + filelist[filenum - 1].size;
     char *bitfield = (char *)malloc(piece_num / 8 + 1);
     memset(bitfield, 0, piece_num / 8 + 1);
     char *hashbuf = (char *)malloc(piece_len);
@@ -171,13 +225,11 @@ char *gen_bitfield(FILE *fp, char *piece_hash, int piece_len, int piece_num){
     hashptr_t ptr = (hashptr_t) piece_hash;
     int i;
     for (i = 0; i < piece_num; i++){
-        if (get_piece(fp, hashbuf, i, piece_len) == -1){
-            printf("Error when read piece to generate bitfield\n");
-            assert(false);
-        }
+        int blocksize = (i != piece_num - 1)?piece_len:(cursize - (piece_num - 1) * piece_len);
+        list_get_piece(filelist, filenum, hashbuf, blocksize, piece_len * i);
         SHA1Context sha;
         SHA1Reset(&sha);
-        SHA1Input(&sha, (const unsigned char*)hashbuf, (i != piece_num - 1)?piece_len:(cursize - (piece_num - 1) * piece_len));
+        SHA1Input(&sha, (const unsigned char*)hashbuf, blocksize);
         if(!SHA1Result(&sha))
         {
             printf("FAILURE in count sha when generate bitfield\n");
@@ -199,6 +251,7 @@ char *gen_bitfield(FILE *fp, char *piece_hash, int piece_len, int piece_num){
 #endif
         if (memcmp(sha.Message_Digest, ptr->hash, 20) == 0){
             printf("write 1\n");
+            globalInfo.g_downloaded += globalInfo.g_torrentmeta->piece_len;
             set_bit_at_index(bitfield, i, 1);
         } else {
             printf("write 0\n");

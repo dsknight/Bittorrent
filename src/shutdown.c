@@ -14,6 +14,10 @@ void client_shutdown(int sig)
     free(request);
     close(sockfd);
     close(listenfd);
+    int i;
+    for (i = 0; i < globalInfo.g_torrentmeta->filenum; i++){
+        fclose(globalInfo.g_torrentmeta->flist[i].fp);
+    }
     sleep(1);
     exit(0);
 }

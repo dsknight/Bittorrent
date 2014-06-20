@@ -17,6 +17,7 @@
 #include "list.h"
 #include "global.h"
 #include "fileop.h"
+#include "util.h"
 
 #define my_free(ptr) if(NULL != (ptr))\
                         free(ptr);\
@@ -51,7 +52,9 @@ static char set_bit[8] = {1,2,4,8,16,32,64,128};
 
 static int readn( int fd, void *bp, size_t len)
 {
+#ifdef DEBUG
     printf("in readn: read %d char\n", len);
+#endif
     int cnt;
     int rc;
     cnt = len;
@@ -148,13 +151,15 @@ int select_next_piece_(){//by order
     my_lock(P2P_mutex);
     list_foreach(ptr,&P2PCB_head){
         P2PCB *tmpP2P = list_entry(ptr,P2PCB,list);
-        printf("*** %d ***\n",(int)&tmpP2P->list);
+        //printf("*** %d ***\n",(int)&tmpP2P->list);
         if(tmpP2P->peer_interested == 1 && tmpP2P->am_choking == 0){
             char *bitfield1 = globalInfo.bitfield;
             char *bitfield2 = tmpP2P->oppsite_bitfield;
             for(int i = 0; i < piece_num; i++){
                 if(get_bit_at_index(bitfield1,i) == 0 && get_bit_at_index(bitfield2,i) == 1){
+#ifdef DEBUG
                     printf("next piece is: %d \n",i);
+#endif
                     my_unlock(P2P_mutex);
                     return i;
                 }
@@ -169,14 +174,18 @@ int select_next_piece_(){//by order
 int select_next_piece(){//least first
     int min_index = -1, min_val = 100000;
     for(int i = 0; i < globalInfo.g_torrentmeta->num_pieces; i++){
+#ifdef DEBUG
         printf("*%d:%d* ",i,piece_counter[i]);
+#endif
         if(get_bit_at_index(globalInfo.bitfield,i) == 0 
             && piece_counter[i] != 0 && piece_counter[i] < min_val){
             min_val = piece_counter[i];
             min_index = i;
         }
     }
+#ifdef DEBUG
     printf("\nnext piece is %d (least first)\n",min_index);
+#endif
     return min_index;
 }
     
@@ -192,13 +201,17 @@ int select_next_subpiece(int index,int *begin,int *length){
                     *begin = i * d_piece->sub_piece_size;
                     if(i == d_piece->sub_piece_num -1 && rest != 0){
                         *length = rest;
+#ifdef DEBUG
                         printf("next subpiece is index:%d begin:%d length:%d\n",index,*begin,*length);
+#endif
                         my_unlock(download_mutex);
                         return 1;
                     }
                     else{
                         *length = d_piece->sub_piece_size;
+#ifdef DEBUG
                         printf("next subpiece is index:%d begin:%d length:%d\n",index,*begin,*length);
+#endif
                         my_unlock(download_mutex);
                         return 1;
                     }
@@ -210,13 +223,17 @@ int select_next_subpiece(int index,int *begin,int *length){
                     int rest = globalInfo.g_torrentmeta->piece_len % d_piece->sub_piece_size;
                     if(i == d_piece->sub_piece_num -1 && rest != 0){
                         *length = rest;
+#ifdef DEBUG
                         printf("next subpiece is index:%d begin:%d length:%d\n",index,*begin,*length);
+#endif
                         my_unlock(download_mutex);
                         return 1;
                     }
                     else{
                         *length = d_piece->sub_piece_size;
+#ifdef DEBUG
                         printf("next subpiece is index:%d begin:%d length:%d\n",index,*begin,*length);
+#endif
                         my_unlock(download_mutex);
                         return 1;
                     }
@@ -310,7 +327,18 @@ int generate_listenfd(){
 void* process_p2p_conn(void *param){
     //process param 
     p2p_thread_param *currParam = (p2p_thread_param *)param;
-    int connfd = currParam->connfd;
+    int connfd;
+    if (currParam->is_connecter != 1){
+        connfd = currParam->connfd;
+    } else {
+        connfd = connect_to_host(currParam->ip, currParam->port);
+        if (connfd == -1){
+            int tmp = errno;
+            printf("Error when connect to peer %s:%d, reason:%s\n", currParam->ip, currParam->port, strerror(tmp));
+            return NULL;
+        }
+        currParam->connfd = connfd;
+    }
     int is_connecter = currParam->is_connecter;
 
     //init P2PCB
@@ -381,8 +409,14 @@ void* process_p2p_conn(void *param){
         *(int*)bitfield_msg = htonl(1+bitfield_len);
         bitfield_msg[4] = 5;
         memcpy(bitfield_msg+5,globalInfo.bitfield,bitfield_len);
+#ifdef DEBUG
         printf("bitfield to send:%02X %02X\n", bitfield_msg[5], globalInfo.bitfield[0]);
-        send(connfd,bitfield_msg,5+bitfield_len,0);
+#endif
+        if (send(connfd,bitfield_msg,5+bitfield_len,0) == -1){
+            printf("Error when send: %s", strerror(errno));
+            drop_conn(currP2P);
+            return NULL;
+        }
     }
 
     //process msgs
@@ -392,7 +426,7 @@ void* process_p2p_conn(void *param){
     my_lock(download_mutex);
     list_foreach(ptr,&downloading_piece_head){
         downloading_piece *d_piece = list_entry(ptr,downloading_piece,list);
-        printf("**** %d ****\n",d_piece->index);
+        //printf("**** %d ****\n",d_piece->index);
     }
     my_unlock(download_mutex);
         int len = ntohl(*(int *)prefix);
@@ -467,7 +501,7 @@ void* process_p2p_conn(void *param){
                                  downloading_piece *d_piece = find_downloading_piece(index);
                                  my_lock(P2P_mutex);
                                  my_lock(download_mutex);
-                                 if(d_piece->downloading_num < MAX_REQUEST_NUM && 
+                                 if(d_piece != NULL && d_piece->downloading_num < MAX_REQUEST_NUM && 
                                          d_piece->downloading_num != 0 && 
                                          currP2P->am_choking == 0 && currP2P->peer_interested == 1){
                                      int begin;
@@ -618,10 +652,13 @@ void* process_p2p_conn(void *param){
                             continue;
                         }
                         set_block(index,begin,length,payload+8);
+                        globalInfo.g_downloaded += length;
                         int subpiece_index = begin/d_piece->sub_piece_size;
                         d_piece->sub_piece_state[subpiece_index] = 2;
                         if(!select_next_subpiece(index,&begin,&length)){//a piece is downloaded completely
+#ifdef DEBUG
                             printf("piece %d has been dowmloaded successfully\n",index);
+#endif
                             set_bit_at_index(globalInfo.bitfield,index,1);//update local bitfield
                             list_del(&d_piece->list);
                             my_free(d_piece->sub_piece_state);
@@ -654,7 +691,7 @@ void* process_p2p_conn(void *param){
                             }
 
                             int next_index = select_next_piece();
-                            printf("*** tag-select piece %d ***\n", next_index);
+                            //printf("*** tag-select piece %d ***\n", next_index);
                             downloading_piece *next_d_piece;
                             if(next_index != -1)
                                 next_d_piece = init_downloading_piece(next_index);
@@ -702,11 +739,8 @@ void* process_p2p_conn(void *param){
                             my_unlock(P2P_mutex);
                         }
                         else{// request for next sub piece
-                            printf("*** request for next sub piece 1 *** \n");
                             my_lock(P2P_mutex);
-                            printf("*** request for next sub piece 2 *** \n");
                             if(currP2P->peer_interested == 1 && currP2P->am_choking == 0){
-                            printf("*** request for next sub piece 3 *** \n");
                                 send_request_msg(connfd,index,begin,length);
                                 int subpiece_index = begin/d_piece->sub_piece_size;
                                 d_piece->sub_piece_state[subpiece_index] = 1;
@@ -742,7 +776,9 @@ void* process_p2p_conn(void *param){
 }
 
 void send_have_msg(int connfd,int index){
+#ifdef DEBUG
     printf("send have\n");
+#endif
     char have_msg[9];
     *(int*)have_msg = htonl(5);
     have_msg[4] = 4;
@@ -751,7 +787,9 @@ void send_have_msg(int connfd,int index){
 }
 
 void send_request_msg(int connfd,int index,int begin,int length){
+#ifdef DEBUG
     printf("send request,index:%d,begin:%d,length:%d\n",index,begin,length);
+#endif
     char request_msg[17];
     *(int*)request_msg = htonl(13);
     request_msg[4] = 6;
@@ -762,7 +800,9 @@ void send_request_msg(int connfd,int index,int begin,int length){
 }
 
 void send_interest_msg(int connfd){
+#ifdef DEBUG
     printf("send interest\n");
+#endif
     char interest_msg[5];
     *(int*)interest_msg = htonl(1);
     interest_msg[4] = 2;
@@ -770,7 +810,9 @@ void send_interest_msg(int connfd){
 }
 
 void send_choke_msg(int connfd){
+#ifdef DEBUG
     printf("send chock\n");
+#endif
     char choke_msg[5];
     *(int*)choke_msg = htonl(1);
     choke_msg[4] = 0;
@@ -778,7 +820,9 @@ void send_choke_msg(int connfd){
 }
 
 void send_not_interest_msg(int connfd){
+#ifdef DEBUG
     printf("send not interest\n");
+#endif
     char not_interest_msg[5];
     *(int*)not_interest_msg = htonl(1);
     not_interest_msg[4] = 3;
@@ -786,7 +830,9 @@ void send_not_interest_msg(int connfd){
 }
 
 void send_unchoke_msg(int connfd){
+#ifdef DEBUG
     printf("send unchoke\n");
+#endif
     char unchoke_msg[5];
     *(int*)unchoke_msg = htonl(1);
     unchoke_msg[4] = 1;
@@ -794,9 +840,12 @@ void send_unchoke_msg(int connfd){
 }   
 
 void send_piece_msg(int connfd, int index, int begin, int length){
+#ifdef DEBUG
     printf("send piece: %d\n", length);
+#endif
     char block[length];
     get_block(index,begin,length,block);
+    globalInfo.g_uploaded += length;
     char piece_msg[13 + length];
     *(int *)piece_msg = htonl(9 + length);
     piece_msg[4] = 7;

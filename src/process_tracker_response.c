@@ -75,7 +75,7 @@ tracker_response* preprocess_tracker_response(int sockfd)
             memset(buf, 0, 80);
             memcpy(buf, begin, end - begin);
             if (begin == head){
-                if(memcmp(buf, "HTTP/1.1 200 OK", sizeof("HTTP/1.1 200 OK") - 1) != 0){
+                if(memcmp(buf, "HTTP/1.1 200 OK", sizeof("HTTP/1.1 200 OK") - 1) != 0 && memcmp(buf, "HTTP/1.0 200 OK", sizeof("HTTP/1.0 200 OK") - 1) != 0){
                     printf("Wrong tracker response: %s\n", buf);
                     return NULL;
                 }
@@ -96,11 +96,18 @@ tracker_response* preprocess_tracker_response(int sockfd)
     }
 
     // read HTTP content
-    assert(len != -1 && "HTTP header should have the Content-Length item");
+    //assert(len != -1 && "HTTP header should have the Content-Length item");
     memset(recvline, 0, MAXLINE);
-    if (readn(sockfd, recvline, len) < 0){
-        printf("Error when read HTTP content\n");
-        return NULL;
+    if (len != -1){
+        if (readn(sockfd, recvline, len) < 0){
+            printf("Error when read HTTP content\n");
+            return NULL;
+        }
+    } else {
+        if ((len = read(sockfd, recvline, MAXLINE)) < 0){
+            printf("Error when read HTTP content\n");
+            return NULL;
+        }
     }
 
     tracker_response* ret;

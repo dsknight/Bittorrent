@@ -39,7 +39,6 @@ struct globalInfo_t{
     int     g_uploaded;
     int     g_downloaded;
     int     g_left;
-    FILE    *fp;
     char    *bitfield;
     torrentmetadata_t   *g_torrentmeta;
     tracker_data        *g_tracker_response;
