@@ -496,7 +496,7 @@ void* process_p2p_conn(void *param){
                          //check idle bits
                          unsigned char ch = bitfield[len-2];
                          int offset = 8 - globalInfo.g_torrentmeta->num_pieces%8;
-                         while(offset >= 1){
+                         while(offset >= 1 && offset < 8){
                              if(((ch >> (offset-1)) & 1) == 1){//wrong idle bits 
                                  printf("wrong idle bits\n");
                                  drop_conn(currP2P);
